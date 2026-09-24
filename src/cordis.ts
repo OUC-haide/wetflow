@@ -26,6 +26,8 @@ export interface Config {
    * can register domain tools without the agent framework owning them.
    */
   registerTools?: (registry: ToolRegistry) => void
+  /** Lazily adds a bounded run summary when research mode is enabled. */
+  additionalContext?: (workflowRunId: string) => string
 }
 
 export const Config = z.object({
@@ -36,6 +38,7 @@ export const Config = z.object({
   models: z.array(z.string()).default([]),
   contextTokenBudget: z.number().int().min(1_024).max(100_000).default(6_000),
   registerTools: z.function().optional(),
+  additionalContext: z.function().optional(),
 })
 
 export const name = 'wetflow-agent'
@@ -53,6 +56,7 @@ export function apply(ctx: CordisContext, config: Config): void {
   const agent = new WetFlowAgent(store, provider, {
     ...(config.contextTokenBudget ? { contextTokenBudget: config.contextTokenBudget } : {}),
     ...(config.registerTools ? { registerTools: config.registerTools } : {}),
+    ...(config.additionalContext ? { additionalContext: config.additionalContext } : {}),
   })
   ctx.reflect.provide('wetflow', agent)
   ctx.effect(() => () => {

@@ -12,6 +12,10 @@ import { OpenAICompatibleProvider } from './agent/provider.js'
 import type { ToolRegistry } from './agent/tools.js'
 import { registerIndustrialTools } from './agent/industrial-tools.js'
 import { registerModelingTools } from './agent/modeling-tools.js'
+import { registerResearchTools } from './agent/research-tools.js'
+import { registerResearchRoutes } from './research/routes.js'
+import { ResearchStore } from './research/store.js'
+import { ResearchService } from './research/service.js'
 import { ModelingService } from './modeling/service.js'
 import { IndustrialSettingsManager, IndustrialStore } from './industrial/index.js'
 import type {
@@ -41,6 +45,7 @@ export interface ServerOptions {
   industrialSettingsPath?: string
   industrialDbPath?: string
   modelingDataDir?: string
+  researchDbPath?: string
 }
 
 interface StoredModelSettings {
@@ -144,8 +149,10 @@ export async function createServer(options: ServerOptions = {}) {
     : undefined)
   // The industrial store and run resolver only exist after the agent context is
   // built, so registration captures lazy accessors instead of values.
+  const workflowDbPath = options.dbPath ?? process.env.WETFLOW_DB ?? '.wetflow/wetflow-agent.db'
   let resolveIndustrialRunId: ((candidate?: unknown) => string) | undefined
   let openIndustrialStore: (() => IndustrialStore) | undefined
+  let researchService: ResearchService | undefined
   const registerAgentTools = (registry: ToolRegistry): void => {
     registerIndustrialTools(registry, {
       store: () => {
@@ -160,13 +167,14 @@ export async function createServer(options: ServerOptions = {}) {
     })
   }
   const ctx = await createWetFlowContext({
-    dbPath: options.dbPath ?? process.env.WETFLOW_DB ?? '.wetflow/wetflow-agent.db',
+    dbPath: workflowDbPath,
     modelBaseUrl: modelSettings?.baseUrl ?? '',
     modelApiKey: modelSettings?.apiKey ?? '',
     model: modelSettings?.model ?? '',
     models: (process.env.WETFLOW_MODELS ?? '').split(',').map(value => value.trim()).filter(Boolean),
     ...(contextTokenBudget ? { contextTokenBudget } : {}),
     registerTools: registerAgentTools,
+    additionalContext: runId => researchService?.context(runId) ?? '',
   })
   const agent = ctx.wetflow
 
@@ -217,6 +225,12 @@ export async function createServer(options: ServerOptions = {}) {
   }
   if (!agent.tools.has('modeling_methods')) {
     registerModelingTools(agent.tools, () => modelingService(), candidate => resolveRunId(candidate))
+  }
+  const researchDbPath = options.researchDbPath ?? process.env.WETFLOW_RESEARCH_DB ?? (workflowDbPath === ':memory:' ? ':memory:' : join(dirname(workflowDbPath), 'research.db'))
+  const researchStore = new ResearchStore(researchDbPath)
+  researchService = new ResearchService({ store: researchStore, validateRunId: runId => { resolveRunId(runId) }, modeling: modelingService })
+  if (!agent.tools.has('research_profile')) {
+    registerResearchTools(agent.tools, () => { if (!researchService) throw new Error('研究服务尚未就绪。'); return researchService }, candidate => resolveRunId(candidate))
   }
   const industrialError = (reply: FastifyReply, error: unknown) => {
     const message = error instanceof Error ? error.message : String(error)
@@ -459,6 +473,8 @@ export async function createServer(options: ServerOptions = {}) {
     } catch (error) { return modelingError(reply, error) }
   })
 
+  registerResearchRoutes(app, researchService, candidate => resolveRunId(candidate))
+
   // Industrial records live next to the workflow database and stop at an
   // approval boundary: no endpoint dispatches anything to an external system.
   app.get('/api/industrial/settings', async () => ({ settings: industrialSettings.public() }))
@@ -700,6 +716,8 @@ export async function createServer(options: ServerOptions = {}) {
 
   app.addHook('onClose', async () => {
     await modeling?.close()
+    await researchService?.close()
+    researchStore.close()
     industrial?.close()
     await ctx.fiber.dispose()
   })

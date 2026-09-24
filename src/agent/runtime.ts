@@ -41,6 +41,8 @@ export interface WetFlowAgentOptions {
   maxToolExecutions?: number
   /** Cap on provider calls per user turn. */
   maxModelTurns?: number
+  /** Lazily resolved, bounded host context; never used for fetched document text. */
+  additionalContext?: (workflowRunId: string) => string
 }
 
 export class WetFlowAgent {
@@ -487,8 +489,9 @@ export class WetFlowAgent {
     const messages = this.store.messagesForContext()
     const latestUserMessage = [...messages].reverse().find(message => message.role === 'user')
     const memory = this.store.conversationMemory()
+    const additionalContext = this.options.additionalContext?.(workflow.id) ?? ''
     return composeModelContext({
-      instructions: SYSTEM_PROMPT,
+      instructions: additionalContext ? `${SYSTEM_PROMPT}\n\n${additionalContext}` : SYSTEM_PROMPT,
       workflow,
       conversationId: this.store.activeConversationId(),
       ...(memory ? { memory } : {}),
