@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.wetflow/
+.env
+.env.*
+*.db
+*.db-shm
+*.db-wal
+__pycache__/
+*.pyc
+*.log

@@ -1,0 +1,72 @@
+{
+  "name": "@wetflow/cordis-agent",
+  "version": "0.1.2",
+  "private": true,
+  "packageManager": "npm@10.9.4",
+  "type": "module",
+  "description": "Standalone Cordis-based WetFlow agent with CLI and WebUI",
+  "keywords": [
+    "wetlab",
+    "workflow",
+    "agent",
+    "cordis",
+    "local-first"
+  ],
+  "main": "dist/node/cordis.js",
+  "exports": {
+    ".": "./dist/node/cordis.js",
+    "./core": "./dist/node/core.js",
+    "./agent": "./dist/node/agent.js",
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "wetflow": "./dist/node/cli.js",
+    "wetflow-web": "./dist/node/server.js"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n api,web -c cyan,green \"npm:dev:server\" \"npm:dev:web\"",
+    "dev:server": "tsx watch src/server.ts",
+    "dev:web": "vite --host 127.0.0.1",
+    "console": "tsx src/cli.ts",
+    "start": "node dist/node/server.js",
+    "typecheck": "tsc --noEmit",
+    "bundle:node": "tsdown && node scripts/copy-modeling-worker.mjs",
+    "bundle:web": "vite build",
+    "build": "npm run typecheck && npm run bundle:node && npm run bundle:web",
+    "test": "vitest run --testTimeout=15000",
+    "check": "npm run build && npm run test",
+    "verify:release": "npm run check && npm pack --dry-run"
+  },
+  "engines": {
+    "node": ">=22.19"
+  },
+  "license": "SEE LICENSE IN LICENSE",
+  "dependencies": {
+    "@fastify/static": "^10.1.3",
+    "cordis": "4.0.0-rc.8",
+    "fastify": "^5.6.2",
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.2",
+    "jsdom": "^25.0.1",
+    "tsdown": "^0.15.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.6",
+    "vitest": "^4.1.8"
+  }
+}
