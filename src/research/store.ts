@@ -7,6 +7,13 @@ import type { ResearchProvider } from './providers.js'
 const time = () => new Date().toISOString()
 const id = (prefix: string) => `${prefix}-${crypto.randomUUID()}`
 const parse = <T>(value: unknown): T => JSON.parse(String(value)) as T
+const withLicenseStatus = <T extends Pick<ResearchSource, 'license'|'licenseUrl'|'licenseStatus'>>(source: T): T & Pick<ResearchSource,'licenseStatus'> => ({
+  ...source,
+  // Copyright is provenance, not a reuse license. Never infer permission from its presence.
+  licenseStatus: source.licenseStatus === 'known' && (source.license || source.licenseUrl)
+    ? 'known'
+    : source.license || source.licenseUrl ? 'known' : 'unknown',
+})
 
 /** A separate SQLite file holds only research evidence; every row is owned by a workflow run. */
 export class ResearchStore {
@@ -58,30 +65,30 @@ export class ResearchStore {
     const byDoi = input.doi ? this.db.prepare('SELECT id,body FROM research_sources WHERE run_id=? AND doi=?').get(runId,input.doi) as {id:string;body:string}|undefined : undefined
     const row = existing ?? byDoi
     if (row) {
-      const prior = parse<ResearchSource>(row.body)
+      const prior = withLicenseStatus(parse<ResearchSource>(row.body))
       const rank = (level: ResearchSource['documentLevel']) => ({metadata:0,abstract:1,dataset:2,fulltext:3}[level])
       const richer = rank(input.documentLevel) >= rank(prior.documentLevel)
-      const merged: ResearchSource = { ...prior, ...input, id: row.id, runId, provider: prior.provider, externalId: prior.externalId, ...(richer ? {} : {documentLevel:prior.documentLevel,text:prior.text}), ...(!richer && prior.fetchError ? {fetchError:prior.fetchError} : {}) }
+      const merged: ResearchSource = withLicenseStatus({ ...prior, ...input, id: row.id, runId, provider: prior.provider, externalId: prior.externalId, ...(richer ? {} : {documentLevel:prior.documentLevel,text:prior.text}), ...(!richer && prior.fetchError ? {fetchError:prior.fetchError} : {}) })
       this.db.prepare('UPDATE research_sources SET body=?,doi=COALESCE(?,doi) WHERE id=?').run(JSON.stringify(merged), input.doi ?? null, row.id)
       return merged
     }
     const sourceCount=this.db.prepare('SELECT COUNT(*) AS count FROM research_sources WHERE run_id=?').get(runId) as {count:number}
     if(sourceCount.count>=500) throw new Error('At most 500 research sources are allowed per workflow run')
-    const source: ResearchSource = { ...input, id:id('source'),runId }
+    const source: ResearchSource = withLicenseStatus({ ...input, id:id('source'),runId })
     this.db.prepare('INSERT INTO research_sources(id,run_id,provider,external_id,doi,body,created_at) VALUES(?,?,?,?,?,?,?)').run(source.id,runId,source.provider,source.externalId,source.doi ?? null,JSON.stringify(source),time())
     return source
   }
   source(runId: string, sourceId: string): ResearchSource {
     const row = this.db.prepare('SELECT body FROM research_sources WHERE run_id=? AND id=?').get(runId,sourceId) as {body:string}|undefined
     if (!row) throw new Error('研究来源不存在。')
-    return parse<ResearchSource>(row.body)
+    return withLicenseStatus(parse<ResearchSource>(row.body))
   }
   sources(runId: string): ResearchSource[] {
-    return (this.db.prepare('SELECT body FROM research_sources WHERE run_id=? ORDER BY created_at DESC').all(runId) as Array<{body:string}>).map(row => parse<ResearchSource>(row.body))
+    return (this.db.prepare('SELECT body FROM research_sources WHERE run_id=? ORDER BY created_at DESC').all(runId) as Array<{body:string}>).map(row => withLicenseStatus(parse<ResearchSource>(row.body)))
   }
   updateSource(runId: string, source: ResearchSource): ResearchSource {
     const prior=this.source(runId,source.id);const rank=(level:ResearchSource['documentLevel'])=>({metadata:0,abstract:1,dataset:2,fulltext:3}[level])
-    const updated:ResearchSource=rank(source.documentLevel)<rank(prior.documentLevel)?{...source,documentLevel:prior.documentLevel,text:prior.text,url:prior.url,...(prior.note?{note:prior.note}:{})}:source
+    const updated:ResearchSource=withLicenseStatus(rank(source.documentLevel)<rank(prior.documentLevel)?{...source,documentLevel:prior.documentLevel,text:prior.text,url:prior.url,...(prior.note?{note:prior.note}:{})}:source)
     this.db.prepare('UPDATE research_sources SET body=?,doi=? WHERE id=? AND run_id=?').run(JSON.stringify(updated),updated.doi ?? null,updated.id,runId)
     return updated
   }

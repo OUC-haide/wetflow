@@ -14,7 +14,7 @@ let failSearch = false
 let deferSearch = false
 let resolveSearchResponse: ((response: Response) => void) | undefined
 let listingLevel: string = 'metadata'
-const source = { id: 'src-1', runId: 'run-1', provider: 'geo', externalId: 'GSE123', title: 'Growth data', url: 'https://example.org/GSE123', documentLevel: listingLevel, text: '', accession: 'GSE123' }
+const source = { id: 'src-1', runId: 'run-1', provider: 'geo', externalId: 'GSE123', title: 'Growth data', url: 'https://example.org/GSE123', documentLevel: listingLevel, text: '', accession: 'GSE123', doi: '10.1000/example', authors: 'A. Researcher' }
 const record = { id: 'record-1', runId: 'run-1', sourceId: 'src-1', createdAt: '2026-01-01', origin: 'literature', status: 'EXTRACTED', organism: 'E. coli', strain: 'K12', medium: 'M9', metric: 'biomass', unit: 'g/L', timeUnit: 'h', points: [{ time: 0, value: 0.1 }, { time: 12, value: 0.5 }, { time: 24, value: 1 }], evidenceQuote: 'Biomass increased', locator: 'Table 1' }
 const job = { id: 'job-1', runId: 'run-1', query: 'E. coli growth', providers: ['europepmc'], status: 'INTERRUPTED', found: 1, errors: ['arXiv unavailable'], createdAt: '2026-01-01', updatedAt: '2026-01-01' }
 let listedJob: typeof job = job
@@ -89,6 +89,8 @@ describe('ResearchWorkspace', () => {
     await render()
     await tab('文献与数据源')
     expect(container.textContent).toContain('仅元数据')
+    expect(container.textContent).toContain('许可信息未知')
+    expect([...container.querySelectorAll('a')].some(link => link.href === 'https://doi.org/10.1000%2Fexample')).toBe(true)
     await click('获取摘要或正文')
     expect(container.textContent).toContain('摘要')
     expect(container.textContent).toContain('Growth increased.')

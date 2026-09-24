@@ -1,6 +1,6 @@
 export type ResearchProvider = 'europepmc' | 'arxiv' | 'geo';
-export interface SearchHit { provider:ResearchProvider; externalId:string; title:string; url:string; doi?:string; authors?:string; year?:string; abstract?:string; pmcid?:string; accession?:string; }
-export interface SourceDocument { text:string; level:'metadata'|'abstract'|'fulltext'; url:string; mediaType:string; note?:string; }
+export interface SearchHit { provider:ResearchProvider; externalId:string; title:string; url:string; doi?:string; authors?:string; year?:string; abstract?:string; pmcid?:string; accession?:string; licenseStatus?:'known'|'unknown'; license?:string; licenseUrl?:string; copyright?:string; }
+export interface SourceDocument { text:string; level:'metadata'|'abstract'|'fulltext'; url:string; mediaType:string; note?:string; licenseStatus?:'known'|'unknown'; license?:string; licenseUrl?:string; copyright?:string; }
 
 type Fetcher = typeof fetch;
 const MAX_RESULTS = 20;
@@ -29,6 +29,32 @@ function plainXml(xml: string): string {
     .replace(/<\/?(?:break|br)\b[^>]*>/gi, '\n')
     .replace(/<[^>]+>/g, ' '))
     .replace(/[ \t]*\n[ \t]*/g, '\n').replace(/ *\t */g, '\t').replace(/ {2,}/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+}
+function europePmcArticleRights(xml: string): Pick<SourceDocument,'licenseStatus'|'license'|'licenseUrl'|'copyright'> {
+  const articleMeta = xml.match(/<article-meta\b[^>]*>([\s\S]*?)<\/article-meta\s*>/i)?.[1] ?? xml
+  const permissions = articleMeta.match(/<permissions\b[^>]*>([\s\S]*?)<\/permissions\s*>/i)?.[1] ?? ''
+  const licenseTags = [...permissions.matchAll(/<license\b([^>]*)>([\s\S]*?)<\/license\s*>/gi)]
+  const labels: string[] = [], urls: string[] = []
+  for (const licenseTag of licenseTags) {
+    const attrs = licenseTag[1] ?? '', content = licenseTag[2] ?? ''
+    const href = attrs.match(/(?:xlink:)?href\s*=\s*(["'])(.*?)\1/i)?.[2]
+    if (href) urls.push(decodeXml(href.trim()))
+    for (const extLink of content.matchAll(/<(?:[\w.-]+:)?ext-link\b([^>]*)>/gi)) {
+      const linkHref = (extLink[1] ?? '').match(/(?:xlink:)?href\s*=\s*(["'])(.*?)\1/i)?.[2]
+      if (linkHref) urls.push(decodeXml(linkHref.trim()))
+    }
+    for (const licenseRef of content.matchAll(/<(?:[\w.-]+:)?license_ref\b[^>]*>([\s\S]*?)<\/(?:[\w.-]+:)?license_ref\s*>/gi)) {
+      const ref = decodeXml(safeText(licenseRef[1] ?? '', 2000)).trim()
+      if (/^https?:\/\/[^\s]+$/i.test(ref)) urls.push(ref)
+    }
+    const label = decodeXml(safeText(content, 1000))
+    if (label) labels.push(label)
+  }
+  const copyrightRaw = articleMeta.match(/<copyright-statement\b[^>]*>([\s\S]*?)<\/copyright-statement\s*>/i)?.[1] ?? ''
+  const license = labels.length ? [...new Set(labels)].join('; ').slice(0, 2000) : undefined
+  const licenseUrl = urls.length ? [...new Set(urls)][0] : undefined
+  const copyright = copyrightRaw ? decodeXml(safeText(copyrightRaw, 1000)) : undefined
+  return { licenseStatus: license || licenseUrl ? 'known' : 'unknown', ...(license ? {license} : {}), ...(licenseUrl ? {licenseUrl} : {}), ...(copyright ? {copyright} : {}) }
 }
 
 const ALLOWED_HOSTS = new Set(['www.ebi.ac.uk', 'ebi.ac.uk', 'europepmc.org', 'export.arxiv.org', 'arxiv.org', 'eutils.ncbi.nlm.nih.gov', 'www.ncbi.nlm.nih.gov', 'ncbi.nlm.nih.gov']);
@@ -73,7 +99,7 @@ export async function searchPublic(provider: ResearchProvider, query: string, li
   if (provider === 'europepmc') {
     const u = new URL('https://www.ebi.ac.uk/europepmc/webservices/rest/search'); u.search = new URLSearchParams({ query: q, format: 'json', pageSize: String(n), resultType: 'core' }).toString();
     const { body } = await request(u.toString(), fetcher, signal); const data = JSON.parse(body) as { resultList?: { result?: Record<string, unknown>[] } };
-    return (data.resultList?.result ?? []).slice(0, n).map(x => { const id = String(x.pmid ?? x.pmcid ?? ''); const pmcid = x.pmcid ? String(x.pmcid) : undefined; return { provider, externalId: id, title: String(x.title ?? ''), url: pmcid ? `https://europepmc.org/articles/${pmcid}` : `https://europepmc.org/article/MED/${id}`, ...(x.doi ? { doi: String(x.doi) } : {}), ...(x.authorString ? { authors: String(x.authorString) } : {}), ...(x.firstPublicationDate ? { year: String(x.firstPublicationDate).slice(0, 4) } : {}), ...(x.abstractText ? { abstract: safeText(String(x.abstractText)) } : {}), ...(pmcid ? { pmcid } : {}) } as SearchHit; }).filter(x => x.externalId && x.title);
+    return (data.resultList?.result ?? []).slice(0, n).map(x => { const id = String(x.pmid ?? x.pmcid ?? ''); const pmcid = x.pmcid ? String(x.pmcid) : undefined; const license=typeof x.license==='string'&&x.license.trim()?x.license.trim():undefined; return { provider, externalId: id, title: String(x.title ?? ''), url: pmcid ? `https://europepmc.org/articles/${pmcid}` : `https://europepmc.org/article/MED/${id}`, ...(x.doi ? { doi: String(x.doi) } : {}), ...(x.authorString ? { authors: String(x.authorString) } : {}), ...(x.firstPublicationDate ? { year: String(x.firstPublicationDate).slice(0, 4) } : {}), ...(x.abstractText ? { abstract: safeText(String(x.abstractText)) } : {}), ...(pmcid ? { pmcid } : {}), licenseStatus:license?'known':'unknown', ...(license?{license}:{}) } as SearchHit; }).filter(x => x.externalId && x.title);
   }
   if (provider === 'arxiv') {
     const terms = q.match(/[\p{L}\p{N}_.+-]+/gu) ?? [];
@@ -94,7 +120,7 @@ export async function fetchPublic(hit: SearchHit, signal?: AbortSignal, fetcher:
   if (hit.provider === 'europepmc') {
     if (hit.pmcid && /^PMC\d+$/i.test(hit.pmcid)) {
       const url = `https://www.ebi.ac.uk/europepmc/webservices/rest/${encodeURIComponent(hit.pmcid)}/fullTextXML`;
-      try { const { body } = await request(url, fetcher, signal); const fullText = plainXml(body); const truncated = fullText.length > 100_000; const text = fullText.slice(0, 100_000); if (text.length > 0) return { text, level: 'fulltext', url, mediaType: 'application/xml', ...(truncated ? { note: 'Full text truncated at 100,000 characters.' } : {}) }; }
+      try { const { body } = await request(url, fetcher, signal); const fullText = plainXml(body); const truncated = fullText.length > 100_000; const text = fullText.slice(0, 100_000); if (text.length > 0) return { text, level: 'fulltext', url, mediaType: 'application/xml', ...europePmcArticleRights(body), ...(truncated ? { note: 'Full text truncated at 100,000 characters.' } : {}) }; }
       catch (error) { if (signal?.aborted) throw error; }
     }
     if (hit.abstract) return { text: safeText(hit.abstract), level: 'abstract', url: hit.url, mediaType: 'text/plain', note: 'Europe PMC abstract only; full text was unavailable or not open access.' };

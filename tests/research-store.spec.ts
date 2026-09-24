@@ -34,4 +34,13 @@ describe('ResearchStore',()=>{
     expect(store.source('wf-a',source.id)).toMatchObject({documentLevel:'fulltext',text:'Full paper with a table'})
     store.close()
   })
+
+  it('retains publication license metadata and marks absent licenses unknown',()=>{
+    const store=new ResearchStore(':memory:')
+    const known=store.upsertSource('wf-a',{provider:'europepmc',externalId:'PMC-LICENSE',title:'Licensed paper',url:'https://europepmc.org/articles/PMC1',doi:'10.1234/example',authors:'A. Author',documentLevel:'abstract',text:'abstract',license:'CC BY 4.0',licenseUrl:'https://creativecommons.org/licenses/by/4.0/',copyright:'© 2025 The Authors'})
+    expect(store.source('wf-a',known.id)).toMatchObject({licenseStatus:'known',license:'CC BY 4.0',licenseUrl:'https://creativecommons.org/licenses/by/4.0/',copyright:'© 2025 The Authors',doi:'10.1234/example',authors:'A. Author'})
+    const unknown=store.upsertSource('wf-a',{provider:'arxiv',externalId:'2401.12345',title:'No license metadata',url:'https://arxiv.org/abs/2401.12345',documentLevel:'abstract',text:'abstract',copyright:'© authors'})
+    expect(store.source('wf-a',unknown.id)).toMatchObject({licenseStatus:'unknown',copyright:'© authors'})
+    store.close()
+  })
 })

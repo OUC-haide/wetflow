@@ -21,6 +21,7 @@ export async function runConsole(): Promise<void> {
   const contextTokenBudget = process.env.WETFLOW_CONTEXT_TOKEN_BUDGET
     ? Number(process.env.WETFLOW_CONTEXT_TOKEN_BUDGET)
     : undefined
+  const allowDocumentExcerpts = process.env.WETFLOW_ALLOW_DOCUMENT_EXCERPTS === 'true'
   const ctx = await createWetFlowContext({
     dbPath: process.env.WETFLOW_DB ?? '.wetflow/wetflow-agent.db',
     modelBaseUrl: process.env.WETFLOW_MODEL_BASE_URL ?? '',
@@ -28,9 +29,10 @@ export async function runConsole(): Promise<void> {
     model: process.env.WETFLOW_MODEL ?? '',
     models: (process.env.WETFLOW_MODELS ?? '').split(',').map(value => value.trim()).filter(Boolean),
     ...(contextTokenBudget ? { contextTokenBudget } : {}),
+    allowDocumentExcerpts: () => allowDocumentExcerpts,
   })
   const agent = ctx.wetflow
-  stdout.write(`${colors.green}${colors.bold}WetFlow Cordis Agent${colors.reset}\n输入消息，或使用 /status、/approve <id>、/reject <id>、/wake、/exit。\n`)
+  stdout.write(`${colors.green}${colors.bold}WetFlow Cordis Agent${colors.reset}\n输入消息，或使用 /status、/approve <id>、/reject <id>、/wake、/exit。\n文献片段云端发送：${allowDocumentExcerpts ? '已开启（WETFLOW_ALLOW_DOCUMENT_EXCERPTS=true）' : '已关闭'}\n`)
   renderStatus(agent.snapshot())
 
   const execute = async (input: string): Promise<boolean> => {

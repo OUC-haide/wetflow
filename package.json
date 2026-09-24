@@ -1,6 +1,6 @@
 {
   "name": "@wetflow/cordis-agent",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "packageManager": "npm@10.9.4",
   "type": "module",

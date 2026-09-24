@@ -26,7 +26,20 @@ describe('ResearchService',()=>{
     expect(service.query('wf-a','SELECT value FROM measurements LIMIT 2')).toMatchObject({rows:[{value:3},{value:4}],truncated:true})
     expect(()=>service.query('wf-a','SELECT * FROM measurements; DROP TABLE records')).toThrow(/restricted SELECT/)
     expect(()=>service.source('wf-b',source.id)).toThrow(/不存在/)
-    const exported=service.exportModeling('wf-a',record.id);expect(f.modeling.listDatasets('wf-a')).toEqual([expect.objectContaining({id:exported.datasetId,rowCount:3})]);expect(service.exportModeling('wf-a',record.id)).toEqual(exported);expect(service.records('wf-a').items[0]?.exportedDatasetIds).toContain(exported.datasetId)
+    const exported=service.exportModeling('wf-a',record.id);expect(f.modeling.listDatasets('wf-a')).toEqual([expect.objectContaining({id:exported.datasetId,rowCount:3})]);expect(exported).toMatchObject({format:'text/csv',fields:['time','biomass'],sourceCitation:{sourceId:source.id,doi:'10.1/example',licenseStatus:'unknown'}});expect(service.exportModeling('wf-a',record.id)).toEqual(exported);expect(service.records('wf-a').items[0]?.exportedDatasetIds).toContain(exported.datasetId)
+    await service.close();await f.modeling.close();f.store.close()
+  })
+
+  it('carries article rights metadata through source reads and exports only numeric columns with citation provenance',async()=>{
+    const f=fixture();const licensedHit={...hit,licenseStatus:'known' as const,license:'CC BY 4.0',licenseUrl:'https://creativecommons.org/licenses/by/4.0/',copyright:'© 2025 Authors'}
+    const quote='0 h 1 g/L; 1 h 2 g/L; 2 h 3 g/L'
+    const service=new ResearchService({store:f.store,validateRunId:f.validateRunId,search:async()=>[licensedHit],fetch:async()=>({level:'fulltext',text:quote,url:licensedHit.url,mediaType:'text/plain'}) ,modeling:()=>f.modeling})
+    const job=service.startJob('wf-a',{query:'growth'});await waitFor(()=>service.job('wf-a',job.id).status==='COMPLETED')
+    const source=service.sources('wf-a').items[0]!;expect(source).toMatchObject({licenseStatus:'known',license:'CC BY 4.0'});await service.fetchSource('wf-a',source.id)
+    expect(service.readSource('wf-a',source.id)).toMatchObject({licenseStatus:'known',licenseUrl:licensedHit.licenseUrl,copyright:licensedHit.copyright,doi:hit.doi})
+    expect(service.query('wf-a','SELECT license_status, license_url FROM sources')).toMatchObject({rows:[{license_status:'known',license_url:licensedHit.licenseUrl}]})
+    const record=service.addRecord('wf-a',{sourceId:source.id,organism:'E. coli',strain:'K12',medium:'defined',metric:'biomass',unit:'g/L',timeUnit:'h',points:[{time:0,value:1},{time:1,value:2},{time:2,value:3}],evidenceQuote:quote,locator:'Table 1'})
+    expect(service.exportModeling('wf-a',record.id)).toMatchObject({format:'text/csv',fields:['time','biomass'],sourceCitation:{doi:hit.doi,licenseStatus:'known',license:'CC BY 4.0',licenseUrl:licensedHit.licenseUrl,copyright:licensedHit.copyright}})
     await service.close();await f.modeling.close();f.store.close()
   })
 

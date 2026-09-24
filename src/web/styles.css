@@ -378,6 +378,10 @@ kbd { min-width: 18px; margin: 0 2px; padding: 1px 5px; color: var(--muted); bor
 .settings-secret input { min-width: 0; height: 100%; flex: 1; color: var(--ink); border: 0; outline: 0; background: transparent; }
 .settings-local-note, .settings-error { padding: 10px 11px; display: flex; align-items: flex-start; gap: 8px; border-radius: 8px; font-size: 11.5px; line-height: 1.55; }
 .settings-local-note { color: var(--muted); background: var(--shade); }
+.settings-privacy { margin: 4px 0 15px; padding: 10px 11px; border: 1px solid var(--line); border-radius: 8px; }
+.settings-privacy label { display: flex; align-items: flex-start; gap: 8px; color: var(--ink-soft); font-size: 11.5px; font-weight: 600; }
+.settings-privacy input { margin: 2px 0 0; accent-color: var(--accent); }
+.settings-privacy small { display: block; margin: 7px 0 0 23px; color: var(--muted); font-size: 10.5px; line-height: 1.55; }
 .settings-local-note svg, .settings-error svg { margin-top: 2px; flex: 0 0 auto; }
 .settings-error { margin-top: 10px; color: var(--danger); background: var(--danger-soft); }
 .settings-dialog__actions { margin: 18px -18px -18px; padding: 12px 18px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--line); }
@@ -666,6 +670,10 @@ kbd { min-width: 18px; margin: 0 2px; padding: 1px 5px; color: var(--muted); bor
 .research-source > small { display: block; margin-top: 4px; color: var(--faint); font-size: 10px; overflow-wrap: anywhere; }
 .research-source__meta { margin: 8px 0; display: flex; justify-content: space-between; gap: 8px; align-items: center; }
 .research-source__meta a { color: var(--accent-ink); font-size: 10.5px; }
+.research-source__links { display: flex; gap: 9px; align-items: center; flex-wrap: wrap; }
+.research-source__license { display: block; color: var(--muted); font-size: 10.5px; line-height: 1.5; overflow-wrap: anywhere; }
+.research-reader__meta { margin: 7px 0; color: var(--muted); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.research-reader__meta a { color: var(--accent-ink); }
 .research-source__actions { justify-content: flex-end; }
 .research-reader h3 { margin: 0; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
 .research-reader__url { color: var(--faint); font-size: 10px; overflow-wrap: anywhere; }

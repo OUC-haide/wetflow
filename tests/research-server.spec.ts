@@ -24,4 +24,20 @@ describe('research REST API',()=>{
       expect(missingSource.statusCode).toBe(404)
     } finally {await app.close()}
   })
+
+  it('defaults cloud document excerpt sharing off and persists explicit consent',async()=>{
+    const dir=mkdtempSync(join(tmpdir(),'wetflow-privacy-server-'));dirs.push(dir)
+    const privacySettingsPath=join(dir,'privacy.json')
+    const app=await createServer({dbPath:join(dir,'workflow.db'),researchDbPath:join(dir,'research.db'),privacySettingsPath,serveWeb:false})
+    try {
+      expect((await app.inject({method:'GET',url:'/api/privacy-settings'})).json()).toEqual({allowDocumentExcerpts:false})
+      const saved=await app.inject({method:'PATCH',url:'/api/privacy-settings',payload:{allowDocumentExcerpts:true}})
+      expect(saved.statusCode).toBe(200)
+      expect(saved.json()).toEqual({allowDocumentExcerpts:true})
+      expect((await app.inject({method:'PATCH',url:'/api/privacy-settings',payload:{allowDocumentExcerpts:'yes'}})).statusCode).toBe(400)
+    } finally {await app.close()}
+    const restored=await createServer({dbPath:join(dir,'workflow.db'),researchDbPath:join(dir,'research.db'),privacySettingsPath,serveWeb:false})
+    try { expect((await restored.inject({method:'GET',url:'/api/privacy-settings'})).json()).toEqual({allowDocumentExcerpts:true}) }
+    finally {await restored.close()}
+  })
 })

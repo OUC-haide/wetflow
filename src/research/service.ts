@@ -24,7 +24,7 @@ export interface ResearchServiceOptions {
 
 const MEASUREMENT_COLUMNS = ['record_id','organism','strain','medium','temperature_c','ph','metric','unit','time','time_unit','value','source_id','source_title']
 const RECORD_COLUMNS = ['id','source_id','organism','strain','medium','temperature_c','ph','metric','unit','time_unit','evidence_quote','locator','created_at','origin','status']
-const SOURCE_COLUMNS = ['id','provider','external_id','title','url','doi','authors','year','document_level','note','fetch_error']
+const SOURCE_COLUMNS = ['id','provider','external_id','title','url','doi','authors','year','license_status','license','license_url','copyright','document_level','note','fetch_error']
 const SQL_TABLES: ResearchSqlTable[] = [
   {name:'measurements',columns:MEASUREMENT_COLUMNS,description:'每行一个文献时间点，仅当前工作流运行。'},
   {name:'records',columns:RECORD_COLUMNS,description:'文献提取记录及其证据引用。'},
@@ -83,18 +83,18 @@ export class ResearchService {
     return job
   }
   sources(runId: string): {items: ResearchSource[]} { this.checkRun(runId); return {items:this.options.store.sources(runId).slice(0,100).map(source=>({...source,text:source.text.slice(0,500)}))} }
-  sourceSummaries(runId:string):{items:Array<Pick<ResearchSource,'id'|'title'|'provider'|'documentLevel'|'url'|'note'|'fetchError'>&{snippet:string}>;total:number;truncated:boolean} { this.checkRun(runId);const all=this.options.store.sources(runId);const items=all.slice(0,20).map(source=>({id:source.id,title:source.title,provider:source.provider,documentLevel:source.documentLevel,url:source.url,...(source.note?{note:source.note}:{}),...(source.fetchError?{fetchError:source.fetchError}:{}),snippet:source.text.slice(0,180)}));return {items,total:all.length,truncated:all.length>items.length} }
-  readSource(runId:string,id:string,offset=0,limit=3500):{id:string;offset:number;limit:number;total:number;text:string;hasMore:boolean;nextOffset:number|null;documentLevel:ResearchSource['documentLevel'];title:string;provider:ResearchProvider;url:string;note?:string;fetchError?:string} { this.checkRun(runId);if(!Number.isInteger(offset)||offset<0||!Number.isInteger(limit)||limit<1||limit>3500)throw new Error('offset must be nonnegative and limit must be 1-3500');const source=this.options.store.source(runId,id);const text=source.text.slice(offset,offset+limit);const next=offset+text.length;return {id,offset,limit,total:source.text.length,text,hasMore:next<source.text.length,nextOffset:next<source.text.length?next:null,documentLevel:source.documentLevel,title:source.title,provider:source.provider,url:source.url,...(source.note?{note:source.note}:{}),...(source.fetchError?{fetchError:source.fetchError}:{})} }
+  sourceSummaries(runId:string):{items:Array<Pick<ResearchSource,'id'|'title'|'provider'|'documentLevel'|'url'|'doi'|'authors'|'year'|'licenseStatus'|'license'|'licenseUrl'|'copyright'|'note'|'fetchError'>&{snippet:string}>;total:number;truncated:boolean} { this.checkRun(runId);const all=this.options.store.sources(runId);const items=all.slice(0,20).map(source=>({id:source.id,title:source.title,provider:source.provider,documentLevel:source.documentLevel,url:source.url,...(source.doi?{doi:source.doi}:{}),...(source.authors?{authors:source.authors}:{}),...(source.year?{year:source.year}:{}),licenseStatus:source.licenseStatus??'unknown',...(source.license?{license:source.license}:{}),...(source.licenseUrl?{licenseUrl:source.licenseUrl}:{}),...(source.copyright?{copyright:source.copyright}:{}),...(source.note?{note:source.note}:{}),...(source.fetchError?{fetchError:source.fetchError}:{}),snippet:source.text.slice(0,180)}));return {items,total:all.length,truncated:all.length>items.length} }
+  readSource(runId:string,id:string,offset=0,limit=3500):{id:string;offset:number;limit:number;total:number;text:string;hasMore:boolean;nextOffset:number|null;documentLevel:ResearchSource['documentLevel'];title:string;provider:ResearchProvider;url:string;doi?:string;authors?:string;year?:string;licenseStatus:'known'|'unknown';license?:string;licenseUrl?:string;copyright?:string;note?:string;fetchError?:string} { this.checkRun(runId);if(!Number.isInteger(offset)||offset<0||!Number.isInteger(limit)||limit<1||limit>3500)throw new Error('offset must be nonnegative and limit must be 1-3500');const source=this.options.store.source(runId,id);const text=source.text.slice(offset,offset+limit);const next=offset+text.length;return {id,offset,limit,total:source.text.length,text,hasMore:next<source.text.length,nextOffset:next<source.text.length?next:null,documentLevel:source.documentLevel,title:source.title,provider:source.provider,url:source.url,...(source.doi?{doi:source.doi}:{}),...(source.authors?{authors:source.authors}:{}),...(source.year?{year:source.year}:{}),licenseStatus:source.licenseStatus??'unknown',...(source.license?{license:source.license}:{}),...(source.licenseUrl?{licenseUrl:source.licenseUrl}:{}),...(source.copyright?{copyright:source.copyright}:{}),...(source.note?{note:source.note}:{}),...(source.fetchError?{fetchError:source.fetchError}:{})} }
   async fetchSourcePreview(runId:string,id:string):Promise<ReturnType<ResearchService['readSource']>> { const source=await this.fetchSource(runId,id);return this.readSource(runId,id,0,3500) }
   source(runId: string,id: string): ResearchSource { this.checkRun(runId); return this.options.store.source(runId,id) }
   async fetchSource(runId: string,id: string): Promise<ResearchSource> {
     this.checkRun(runId); const source = this.options.store.source(runId,id)
-    const hit: SearchHit = {provider:source.provider,externalId:source.externalId,title:source.title,url:source.url,...(source.doi?{doi:source.doi}:{}),...(source.authors?{authors:source.authors}:{}),...(source.year?{year:source.year}:{}),...(source.abstract?{abstract:source.abstract}:{}),...(source.pmcid?{pmcid:source.pmcid}:{}),...(source.accession?{accession:source.accession}:{})}
+    const hit: SearchHit = {provider:source.provider,externalId:source.externalId,title:source.title,url:source.url,...(source.doi?{doi:source.doi}:{}),...(source.authors?{authors:source.authors}:{}),...(source.year?{year:source.year}:{}),...(source.abstract?{abstract:source.abstract}:{}),...(source.pmcid?{pmcid:source.pmcid}:{}),...(source.accession?{accession:source.accession}:{}),licenseStatus:source.licenseStatus??'unknown',...(source.license?{license:source.license}:{}),...(source.licenseUrl?{licenseUrl:source.licenseUrl}:{}),...(source.copyright?{copyright:source.copyright}:{})}
     try {
       const doc = await this.fetchFn(hit)
       if (doc.text.length > MAX_SOURCE_TEXT) throw new Error(`Source document exceeds ${MAX_SOURCE_TEXT} characters`)
       const level = doc.level
-      const next={...source,documentLevel:level,text:doc.text.slice(0,MAX_SOURCE_TEXT),url:doc.url}; delete (next as Partial<ResearchSource>).note; if(doc.note) next.note=doc.note; delete (next as Partial<ResearchSource>).fetchError; return this.options.store.updateSource(runId,next)
+      const next={...source,documentLevel:level,text:doc.text.slice(0,MAX_SOURCE_TEXT),url:doc.url,...(doc.license?{license:doc.license}:{}),...(doc.licenseUrl?{licenseUrl:doc.licenseUrl}:{}),...(doc.copyright?{copyright:doc.copyright}:{}),licenseStatus:doc.licenseStatus??(doc.license||doc.licenseUrl?'known':source.licenseStatus??'unknown')}; delete (next as Partial<ResearchSource>).note; if(doc.note) next.note=doc.note; delete (next as Partial<ResearchSource>).fetchError; return this.options.store.updateSource(runId,next)
     } catch(error) {
       const next = {...source,fetchError:error instanceof Error?error.message:String(error)}
       return this.options.store.updateSource(runId,next)
@@ -136,7 +136,7 @@ export class ResearchService {
       const sources=this.options.store.sources(runId), records=this.options.store.records(runId)
       if(sources.length>500||records.length>MAX_RECORDS||records.reduce((n,r)=>n+r.points.length,0)>MAX_RECORDS*MAX_POINTS) throw new Error('Research SQL data exceeds the bounded per-run query capacity')
       const insertSource=db.prepare(`INSERT INTO sources VALUES(${SOURCE_COLUMNS.map(()=>'?').join(',')})`)
-      for(const s of sources) insertSource.run(s.id,s.provider,s.externalId,s.title,s.url,s.doi??null,s.authors??null,s.year??null,s.documentLevel,s.note??null,s.fetchError??null)
+      for(const s of sources) insertSource.run(s.id,s.provider,s.externalId,s.title,s.url,s.doi??null,s.authors??null,s.year??null,s.licenseStatus??'unknown',s.license??null,s.licenseUrl??null,s.copyright??null,s.documentLevel,s.note??null,s.fetchError??null)
       const insertRecord=db.prepare(`INSERT INTO records VALUES(${RECORD_COLUMNS.map(()=>'?').join(',')})`), insertMeasurement=db.prepare(`INSERT INTO measurements VALUES(${MEASUREMENT_COLUMNS.map(()=>'?').join(',')})`)
       const sourceById=new Map(sources.map(s=>[s.id,s]))
       for(const r of records){ const s=sourceById.get(r.sourceId); insertRecord.run(r.id,r.sourceId,r.organism,r.strain,r.medium,r.temperatureC??null,r.pH??null,r.metric,r.unit,r.timeUnit,r.evidenceQuote,r.locator,r.createdAt,r.origin,r.status); for(const p of r.points) insertMeasurement.run(r.id,r.organism,r.strain,r.medium,r.temperatureC??null,r.pH??null,r.metric,r.unit,p.time,r.timeUnit,p.value,r.sourceId,s?.title??'') }
@@ -146,16 +146,18 @@ export class ResearchService {
       return {columns:plan.columns,rows,truncated:raw.length>plan.limit}
     } finally { db.close() }
   }
-  exportModeling(runId: string,id: string): {datasetId:string;name:string} {
+  exportModeling(runId: string,id: string): {datasetId:string;name:string;format:'text/csv';fields:['time','biomass'];sourceCitation:{sourceId:string;provider:ResearchProvider;title:string;url:string;doi?:string;authors?:string;year?:string;licenseStatus:'known'|'unknown';license?:string;licenseUrl?:string;copyright?:string}} {
     this.checkRun(runId); const record=this.options.store.record(runId,id)
     const modeling=this.options.modeling(); const prior=this.options.store.exports(runId,id).at(-1)
-    if(prior&&modeling.listDatasets(runId).some(dataset=>dataset.id===prior.datasetId))return {datasetId:prior.datasetId,name:prior.name}
+    const source=this.options.store.source(runId,record.sourceId)
+    const sourceCitation={sourceId:source.id,provider:source.provider,title:source.title,url:source.url,...(source.doi?{doi:source.doi}:{}),...(source.authors?{authors:source.authors}:{}),...(source.year?{year:source.year}:{}),licenseStatus:source.licenseStatus??'unknown' as const,...(source.license?{license:source.license}:{}),...(source.licenseUrl?{licenseUrl:source.licenseUrl}:{}),...(source.copyright?{copyright:source.copyright}:{})}
+    if(prior&&modeling.listDatasets(runId).some(dataset=>dataset.id===prior.datasetId))return {datasetId:prior.datasetId,name:prior.name,format:'text/csv',fields:['time','biomass'],sourceCitation}
     if(record.metric.toLowerCase()!=='biomass'||record.unit.toLowerCase()!=='g/l') throw new Error('仅支持 biomass，单位 g/L 的记录导入 growth_fit。')
     const factor=record.timeUnit==='h'?1:record.timeUnit==='min'?1/60:1/3600
     const points=record.points.map(p=>({time:p.time*factor,value:p.value})).sort((a,b)=>a.time-b.time)
     if(points.length<3||points.some((p,i)=>p.time<0||p.value<=0||(i>0&&p.time<=points[i-1]!.time))) throw new Error('growth_fit 要求至少三个正 biomass 点且时间严格递增。')
     const csv=`time,biomass\n${points.map(p=>`${p.time},${p.value}`).join('\n')}\n`, name=`文献 ${record.id}：${record.organism||'未知菌株'} ${record.metric}`.slice(0,120)
-    const dataset=modeling.createDataset(runId,{name,csv});this.options.store.linkExport(runId,id,dataset.id,dataset.name);return {datasetId:dataset.id,name:dataset.name}
+    const dataset=modeling.createDataset(runId,{name,csv});this.options.store.linkExport(runId,id,dataset.id,dataset.name);return {datasetId:dataset.id,name:dataset.name,format:'text/csv',fields:['time','biomass'],sourceCitation}
   }
   context(runId: string): string {
     const profile=this.profile(runId); if(!profile.enabled) return ''

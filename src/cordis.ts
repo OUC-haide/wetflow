@@ -28,6 +28,8 @@ export interface Config {
   registerTools?: (registry: ToolRegistry) => void
   /** Lazily adds a bounded run summary when research mode is enabled. */
   additionalContext?: (workflowRunId: string) => string
+  /** Consent for sending automatically retrieved document excerpts to models. */
+  allowDocumentExcerpts?: () => boolean
 }
 
 export const Config = z.object({
@@ -39,6 +41,7 @@ export const Config = z.object({
   contextTokenBudget: z.number().int().min(1_024).max(100_000).default(6_000),
   registerTools: z.function().optional(),
   additionalContext: z.function().optional(),
+  allowDocumentExcerpts: z.function().optional(),
 })
 
 export const name = 'wetflow-agent'
@@ -57,6 +60,7 @@ export function apply(ctx: CordisContext, config: Config): void {
     ...(config.contextTokenBudget ? { contextTokenBudget: config.contextTokenBudget } : {}),
     ...(config.registerTools ? { registerTools: config.registerTools } : {}),
     ...(config.additionalContext ? { additionalContext: config.additionalContext } : {}),
+    ...(config.allowDocumentExcerpts ? { allowDocumentExcerpts: config.allowDocumentExcerpts } : {}),
   })
   ctx.reflect.provide('wetflow', agent)
   ctx.effect(() => () => {

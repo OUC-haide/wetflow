@@ -43,6 +43,8 @@ export interface WetFlowAgentOptions {
   maxModelTurns?: number
   /** Lazily resolved, bounded host context; never used for fetched document text. */
   additionalContext?: (workflowRunId: string) => string
+  /** Consent for sending automatically retrieved document text to a cloud model. */
+  allowDocumentExcerpts?: () => boolean
 }
 
 export class WetFlowAgent {
@@ -238,6 +240,7 @@ export class WetFlowAgent {
     let turns = 0
     let requestedToolCalls = 0
     let toolBudgetReached = false
+    const startedWithDocumentConsent = this.options.allowDocumentExcerpts?.() ?? false
     let unfinished: { status: AgentTurnStatus; message: string } | undefined
 
     while (turns < maxTurns) {
@@ -249,9 +252,28 @@ export class WetFlowAgent {
       turns += 1
       session.timeoutMs = Math.min(remaining, 45_000)
 
+      const documentConsent = this.options.allowDocumentExcerpts?.() ?? false
+      if (startedWithDocumentConsent && !documentConsent) {
+        const notice = '文献片段发送已关闭，本轮已停止继续调用模型；本地资料仍保留。请重新发送问题。'
+        this.store.addMessage('assistant', notice)
+        this.setTurn('answered', { toolExecutions: executions, toolSuccesses: successes, toolFailures: failures, modelTurns: turns, requestedToolCalls, toolBudgetReached, startedAt: startedWall })
+        this.state = 'READY'
+        return this.snapshot()
+      }
+
       let turn: ModelTurn
       try {
-        turn = await provider.complete(this.contextFrame(this.store.workflow(), normalized), this.tools, options, session)
+        const documentConsent = this.options.allowDocumentExcerpts?.() ?? false
+        if (!documentConsent) session.messages = sanitizeModelSession(session.messages)
+        const context = this.contextFrame(this.store.workflow(), normalized, documentConsent)
+        if (documentConsent && !(this.options.allowDocumentExcerpts?.() ?? false)) {
+          const notice = '文献片段发送已关闭，本轮已停止继续调用模型；本地资料仍保留。请重新发送问题。'
+          this.store.addMessage('assistant', notice)
+          this.setTurn('answered', { toolExecutions: executions, toolSuccesses: successes, toolFailures: failures, modelTurns: turns, requestedToolCalls, toolBudgetReached, startedAt: startedWall })
+          this.state = 'READY'
+          return this.snapshot()
+        }
+        turn = await provider.complete(context, this.tools, options, session)
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error)
         this.store.addMessage('assistant', `模型请求失败：${reason}。本轮未执行任何需要审批的提案。`)
@@ -277,7 +299,9 @@ export class WetFlowAgent {
       const assistantToolCalls = calls.map((call, index) => ({
         id: call.id || `call_${turns}_${index}`,
         name: call.name,
-        arguments: call.rawArguments ?? stringifyArguments(call.arguments),
+        arguments: this.options.allowDocumentExcerpts?.() === false
+          ? sanitizeToolArguments(call.rawArguments ?? stringifyArguments(call.arguments))
+          : call.rawArguments ?? stringifyArguments(call.arguments),
       }))
       session.messages.push({
         role: 'assistant',
@@ -315,7 +339,9 @@ export class WetFlowAgent {
           } else {
             let refusal: string | undefined
             try {
-              refusal = tool.authorize?.(call.arguments, authContext)
+              refusal = !documentConsentForTool(this.options.allowDocumentExcerpts?.() ?? false, call.name)
+                ? `“${call.name}”需要向云端模型提供文献片段，请先在模型设置中开启文献片段发送。`
+                : tool.authorize?.(call.arguments, authContext)
             } catch (error) {
               const reason = error instanceof Error ? error.message : String(error)
               refusal = `工具 ${call.name} 的授权检查失败（${reason}）`
@@ -338,6 +364,9 @@ export class WetFlowAgent {
                 const kind = tool.mutatesState === undefined ? '工具' : tool.mutatesState ? '写入工具' : '只读工具'
                 this.store.addActivity('message', '工具执行', `${kind} ${tool.name} 已执行`)
                 observation = observationContent(result)
+                if (!(this.options.allowDocumentExcerpts?.() ?? false) && call.name.startsWith('research_')) {
+                  observation = stripDocumentText(observation)
+                }
               } catch (error) {
                 failures += 1
                 const reason = error instanceof Error ? error.message : String(error)
@@ -485,18 +514,19 @@ export class WetFlowAgent {
     return result
   }
 
-  private contextFrame(workflow = this.store.workflow(), query?: string): ModelContextFrame {
+  private contextFrame(workflow = this.store.workflow(), query?: string, documentConsent = this.options.allowDocumentExcerpts?.() ?? false): ModelContextFrame {
     const messages = this.store.messagesForContext()
     const latestUserMessage = [...messages].reverse().find(message => message.role === 'user')
-    const memory = this.store.conversationMemory()
-    const additionalContext = this.options.additionalContext?.(workflow.id) ?? ''
+    const memory = documentConsent ? this.store.conversationMemory() : undefined
+    const additionalContext = documentConsent ? this.options.additionalContext?.(workflow.id) ?? '' : ''
+    const privacyNote = documentConsent ? '' : '\n\n隐私设置：自动文档片段发送已关闭。不要调用需要读取或引用文献正文的工具；只可用来源标识与文献信息回答。用户本次直接输入的内容仍可作为问题上下文。'
     return composeModelContext({
-      instructions: additionalContext ? `${SYSTEM_PROMPT}\n\n${additionalContext}` : SYSTEM_PROMPT,
+      instructions: `${SYSTEM_PROMPT}${privacyNote}${additionalContext ? `\n\n${additionalContext}` : ''}`,
       workflow,
       conversationId: this.store.activeConversationId(),
       ...(memory ? { memory } : {}),
-      evidence: this.store.searchEvidence(query ?? latestUserMessage?.content ?? '', 6),
-      messages,
+      evidence: documentConsent ? this.store.searchEvidence(query ?? latestUserMessage?.content ?? '', 6) : [],
+      messages: documentConsent ? messages : (latestUserMessage ? [latestUserMessage] : []),
       // Match the provider request: full definitions include the JSON Schema
       // that actually consumes tokens. `risk` is a short extra label only.
       tools: this.tools.definitions(),
@@ -508,6 +538,56 @@ export class WetFlowAgent {
 function normalizeToolCalls(turn: ModelTurn): ModelToolCall[] {
   if (turn.toolCalls && turn.toolCalls.length > 0) return turn.toolCalls
   return turn.toolCall ? [turn.toolCall] : []
+}
+
+const DOCUMENT_TEXT_FIELDS = new Set(['text', 'abstract', 'snippet', 'evidencequote', 'quote', 'body', 'fulltext', 'content'])
+const DOCUMENT_TOOL_BLOCKLIST = new Set(['research_fetch_source', 'research_source_read', 'research_records', 'research_query', 'research_record_add'])
+
+function documentConsentForTool(allowed: boolean, name: string): boolean {
+  return allowed || !DOCUMENT_TOOL_BLOCKLIST.has(name)
+}
+
+/** Remove excerpt-bearing fields while retaining source identity and citations. */
+export function stripDocumentText(serialized: string): string {
+  try {
+    const parsed: unknown = JSON.parse(serialized)
+    const visit = (value: unknown): unknown => {
+      if (Array.isArray(value)) return value.map(visit)
+      if (!value || typeof value !== 'object') return value
+      const result: Record<string, unknown> = {}
+      for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+        if (DOCUMENT_TEXT_FIELDS.has(key.toLowerCase())) continue
+        result[key] = visit(child)
+      }
+      return result
+    }
+    return JSON.stringify(visit(parsed))
+  } catch {
+    // Plain validation and execution errors carry no document fields.
+    return serialized
+  }
+}
+
+export function sanitizeToolArguments(serialized: string): string {
+  try {
+    const parsed = JSON.parse(serialized) as Record<string, unknown>
+    const cleaned = { ...parsed }
+    for (const key of Object.keys(cleaned)) if (DOCUMENT_TEXT_FIELDS.has(key.toLowerCase())) delete cleaned[key]
+    return JSON.stringify(cleaned)
+  } catch {
+    return '{}'
+  }
+}
+
+function sanitizeModelSession(messages: ModelSession['messages']): ModelSession['messages'] {
+  return messages.map(message => message.role === 'tool'
+    ? { ...message, content: stripDocumentText(message.content) }
+    : {
+      ...message,
+      content: '',
+      toolCalls: message.toolCalls.map(call => ({ ...call, arguments: sanitizeToolArguments(call.arguments) })),
+      ...(message.reasoningContent === undefined ? {} : { reasoningContent: '' }),
+    })
 }
 
 function approvalTitle(name: string, args: Record<string, unknown>): string {

@@ -89,7 +89,8 @@ describe('WetFlowAgent approval boundary', () => {
     agent.switchWorkflowRun(firstRunId)
     const answer = await agent.chat('根据资料查找葡萄糖条件下的 PYC 检测结果')
     expect(answer.messages.at(-1)?.content).toContain('[证据: assay-results.csv#1]')
-    expect(answer.context).toMatchObject({ evidenceSources: 1, evidenceChunks: 1 })
+    // The built-in local path can still read and cite evidence; cloud-model context stays empty by default.
+    expect(answer.context).toMatchObject({ evidenceSources: 0, evidenceChunks: 0 })
     agent.dispose()
     store.close()
   })
@@ -157,7 +158,7 @@ describe('WetFlowAgent approval boundary', () => {
         return { content: '模型响应完成。' }
       },
     }
-    const agent = new WetFlowAgent(store, provider)
+    const agent = new WetFlowAgent(store, provider, { allowDocumentExcerpts: () => true })
     await agent.chat('分析当前状态', { model: 'model-b', reasoningEffort: 'high' })
     expect(received).toEqual({ model: 'model-b', reasoningEffort: 'high' })
     expect(receivedContext?.stats).toMatchObject({

@@ -20,6 +20,28 @@ describe('public research adapters', () => {
     expect(truncated.text).toHaveLength(100_000); expect(truncated.note).toContain('truncated');
   });
 
+  it('preserves publication-specific licenses from Europe PMC core and JATS without inferring from open-access status', async () => {
+    const core = fixture(JSON.stringify({ resultList: { result: [
+      { pmid: '41809402', pmcid: 'PMC12969433', title: 'Licensed article', license: 'cc by-nc-nd', isOpenAccess: 'Y', doi: '10.1234/article', authorString: 'A Author' },
+      { pmid: '41809403', title: 'No license', isOpenAccess: 'Y' },
+    ] } }));
+    const hits = await searchPublic('europepmc', 'licensed article', 5, undefined, core);
+    expect(hits[0]).toMatchObject({ licenseStatus: 'known', license: 'cc by-nc-nd', doi: '10.1234/article', authors: 'A Author' });
+    expect(hits[1]).toMatchObject({ licenseStatus: 'unknown' }); expect(hits[1]?.license).toBeUndefined();
+    const jats = '<article><front><article-meta><permissions><copyright-statement>© 2025 Authors &amp; contributors</copyright-statement><license><license-p>Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 <ext-link xlink:href="https://creativecommons.org/licenses/by-nc-nd/4.0/">license details</ext-link></license-p></license></permissions></article-meta></front><body><p>Article body</p></body></article>';
+    const doc = await fetchPublic(hits[0]!, undefined, fixture(jats, 'application/xml'));
+    expect(doc).toMatchObject({ licenseStatus: 'known', license: 'Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 license details', licenseUrl: 'https://creativecommons.org/licenses/by-nc-nd/4.0/', copyright: '© 2025 Authors & contributors' });
+    const noRights = await fetchPublic({...hits[0]!, abstract:'fallback'}, undefined, fixture('<article><front><article-meta><permissions><copyright-statement>© authors</copyright-statement></permissions></article-meta></front><body><p>Text</p></body></article>', 'application/xml'));
+    expect(noRights).toMatchObject({ licenseStatus: 'unknown', copyright: '© authors' }); expect(noRights.license).toBeUndefined();
+  });
+
+  it('reads the NISO ALI license_ref URL as article metadata', async () => {
+    const xml = '<article><front><article-meta><permissions><copyright-statement>© 2026 The Authors</copyright-statement><copyright-year>2026</copyright-year><license><ali:license_ref xmlns:ali="http://www.niso.org/schemas/ali/1.0/" specific-use="textmining" content-type="ccbyncndlicense">https://creativecommons.org/licenses/by-nc-nd/4.0/</ali:license_ref><license-p>This is an open access article under the CC BY-NC-ND license (http://creativecommons.org/licenses/by-nc-nd/4.0/).</license-p></license></permissions></article-meta></front><body><p>Article body.</p></body></article>';
+    const doc = await fetchPublic({provider:'europepmc',externalId:'PMC12969433',pmcid:'PMC12969433',title:'Paper',url:'https://europepmc.org/articles/PMC12969433'}, undefined, fixture(xml, 'application/xml'));
+    expect(doc).toMatchObject({licenseStatus:'known',licenseUrl:'https://creativecommons.org/licenses/by-nc-nd/4.0/',copyright:'© 2026 The Authors'});
+    expect(doc.license).toContain('CC BY-NC-ND');
+  });
+
   it('parses arXiv metadata and returns abstract level only', async () => {
     const xml = `<feed><entry><id>https://arxiv.org/abs/2401.00001</id><title>Culture kinetics</title><published>2024-01-01</published><author><name> B A </name></author><summary>Line one &amp; line two.</summary></entry></feed>`;
     const hits = await searchPublic('arxiv', 'culture', 2, undefined, fixture(xml, 'application/atom+xml'));

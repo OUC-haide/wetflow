@@ -37,6 +37,11 @@ export interface ResearchSource {
   abstract?: string
   pmcid?: string
   accession?: string
+  /** Publication-level rights metadata; unknown when the article record does not provide a license. */
+  licenseStatus?: 'known' | 'unknown'
+  license?: string
+  licenseUrl?: string
+  copyright?: string
   documentLevel: 'metadata' | 'abstract' | 'fulltext' | 'dataset'
   note?: string
   text: string

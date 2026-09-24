@@ -50,6 +50,8 @@ interface ModelSettings {
   configured: boolean
 }
 
+interface PrivacySettings { allowDocumentExcerpts: boolean }
+
 interface ModelSettingsForm {
   provider: 'openai-compatible'
   baseUrl: string
@@ -393,6 +395,7 @@ export function App() {
   const [settingsBusy, setSettingsBusy] = useState(false)
   const [settingsError, setSettingsError] = useState<string>()
   const [savedSettings, setSavedSettings] = useState<ModelSettings>()
+  const [privacySettings, setPrivacySettings] = useState<PrivacySettings>({ allowDocumentExcerpts: false })
   const [settingsForm, setSettingsForm] = useState<ModelSettingsForm>({
     provider: 'openai-compatible', baseUrl: '', apiKey: '', model: '',
   })
@@ -765,14 +768,33 @@ export function App() {
     setSettingsBusy(true)
     setSettingsError(undefined)
     try {
-      const settings = await request<ModelSettings>('/api/model-settings')
+      const [settings, privacy] = await Promise.all([
+        request<ModelSettings>('/api/model-settings'),
+        request<PrivacySettings>('/api/privacy-settings'),
+      ])
       setSavedSettings(settings)
+      setPrivacySettings(privacy)
       setSettingsForm({
         provider: settings.provider,
         baseUrl: settings.baseUrl,
         apiKey: '',
         model: settings.model,
       })
+    } catch (cause) {
+      setSettingsError(cause instanceof Error ? cause.message : String(cause))
+    } finally {
+      setSettingsBusy(false)
+    }
+  }
+
+  const updatePrivacySettings = async (allowDocumentExcerpts: boolean) => {
+    setSettingsBusy(true)
+    setSettingsError(undefined)
+    try {
+      const settings = await request<PrivacySettings>('/api/privacy-settings', {
+        method: 'PATCH', body: JSON.stringify({ allowDocumentExcerpts }),
+      })
+      setPrivacySettings(settings)
     } catch (cause) {
       setSettingsError(cause instanceof Error ? cause.message : String(cause))
     } finally {
@@ -1236,6 +1258,11 @@ export function App() {
                 onChange={event => setSettingsForm(current => ({ ...current, model: event.target.value }))}
               />
             </label>
+
+            <div className="settings-privacy">
+              <label><input type="checkbox" checked={privacySettings.allowDocumentExcerpts} disabled={settingsBusy} onChange={event => void updatePrivacySettings(event.target.checked)}/><span>允许向云端模型发送自动检索的文献片段</span></label>
+              <small>关闭时会阻止自动文档片段、历史引文和研究工具正文进入模型请求；本地网页阅读照常可用。你主动输入或粘贴的文字仍会发送，系统无法可靠识别其中的文献内容。默认关闭。</small>
+            </div>
 
             <div className="settings-local-note"><ShieldCheck size={14} /><span>配置仅保存在本机，API Key 不会显示在页面或接口响应中。</span></div>
             {settingsError && <div className="settings-error" role="alert"><XCircle size={14} />{settingsError}</div>}

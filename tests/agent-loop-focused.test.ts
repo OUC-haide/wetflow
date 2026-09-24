@@ -83,12 +83,56 @@ function lastAssistant(agent: WetFlowAgent): string {
 }
 
 describe('bounded multi-turn agent loop', () => {
+  it('keeps automatically retrieved documents and old conversation context out while consent is off', async () => {
+    let invoked = false
+    const provider = new ScriptedProvider([
+      () => ({ content: '', toolCalls: [toolCall('research_source_read', { sourceId: 's1', evidenceQuote: 'secret passage' }, { id: 'read-1' })] }),
+      () => ({ content: '已完成。' }),
+    ])
+    const { agent, store } = fixture(provider, {
+      allowDocumentExcerpts: () => false,
+      registerTools: registry => registry.register({
+        name: 'research_source_read', description: '读取来源', approvalRequired: false, risk: 'LOW',
+        execute: () => { invoked = true; return { citation: '[来源: s1]', text: 'secret passage' } },
+      }),
+    })
+    store.addMessage('assistant', '旧回答含 secret passage')
+    store.addMessage('user', '旧问题')
+    store.addEvidenceSource('paper.txt', 'secret passage', 'text/plain')
+
+    await agent.chat('只回答这次问题')
+
+    expect(invoked).toBe(false)
+    expect(provider.calls[0]?.context.messages.map(message => message.content)).toEqual(['只回答这次问题'])
+    expect(provider.calls[0]?.context.evidence).toEqual([])
+    expect(JSON.stringify(provider.calls[0]?.context.memory ?? {})).not.toContain('secret passage')
+    expect(JSON.stringify(provider.calls[1]?.session?.messages ?? [])).not.toContain('secret passage')
+    expect(provider.calls[1]?.session?.messages).toHaveLength(2)
+  })
+
+  it('stops a consented model loop before another request if consent is switched off', async () => {
+    let allow = true
+    const provider = new ScriptedProvider([() => ({ content: '', toolCalls: [toolCall('workflow_status', {}, { id: 'status-1' })] })])
+    const { agent } = fixture(provider, { allowDocumentExcerpts: () => allow })
+    const original = provider.complete.bind(provider)
+    vi.spyOn(provider, 'complete').mockImplementation(async (...args) => {
+      const turn = await original(...args)
+      allow = false
+      return turn
+    })
+
+    const snapshot = await agent.chat('检查状态')
+
+    expect(provider.calls).toHaveLength(1)
+    expect(snapshot.messages.at(-1)?.content).toContain('已停止继续调用模型')
+  })
+
   it('executes a read-only tool, feeds the observation back, and answers in prose', async () => {
     const provider = new ScriptedProvider([
       () => ({ content: '', toolCalls: [toolCall('workflow_status', {}, { id: 'call_status_1' })] }),
       () => ({ content: '当前工作流仍在草稿阶段。' }),
     ])
-    const { agent } = fixture(provider)
+    const { agent } = fixture(provider, { allowDocumentExcerpts: () => true })
 
     const snapshot = await agent.chat('现在工作流到哪一步了？')
 
@@ -149,7 +193,7 @@ describe('bounded multi-turn agent loop', () => {
       () => ({ content: '', reasoningContent: '先看看状态', toolCalls: [toolCall('workflow_status', {}, { id: 'call_r' })] }),
       () => ({ content: '完成。' }),
     ])
-    const { agent } = fixture(provider)
+    const { agent } = fixture(provider, { allowDocumentExcerpts: () => true })
     await agent.chat('检查状态')
 
     const second = provider.calls[1]?.session?.messages ?? []

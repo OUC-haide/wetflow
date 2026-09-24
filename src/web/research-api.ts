@@ -1,7 +1,7 @@
 export type ResearchProvider = 'europepmc' | 'arxiv' | 'geo'
 export type JobStatus = 'QUEUED' | 'SEARCHING' | 'COMPLETED' | 'PARTIAL' | 'FAILED' | 'CANCELLED' | 'INTERRUPTED'
 export interface Profile { runId: string; enabled: boolean; goal: string; organism: string; strain: string; metric: string; conditions: string; customFields: string[] }
-export interface SearchHit { provider: ResearchProvider; externalId: string; title: string; url: string; doi?: string; authors?: string; year?: string; abstract?: string; pmcid?: string; accession?: string }
+export interface SearchHit { provider: ResearchProvider; externalId: string; title: string; url: string; doi?: string; authors?: string; year?: string; abstract?: string; pmcid?: string; accession?: string; licenseStatus?: 'known' | 'unknown'; license?: string; licenseUrl?: string; copyright?: string }
 export interface Job { id: string; runId: string; query: string; providers: ResearchProvider[]; status: JobStatus; found: number; errors: string[]; createdAt: string; updatedAt: string }
 export interface Source extends SearchHit { id: string; runId: string; documentLevel: 'metadata' | 'abstract' | 'fulltext' | 'dataset'; text: string; note?: string; fetchError?: string }
 export interface Point { time: number; value: number }

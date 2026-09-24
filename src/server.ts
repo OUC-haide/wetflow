@@ -41,6 +41,7 @@ export interface ServerOptions {
   dbPath?: string
   serveWeb?: boolean
   settingsPath?: string
+  privacySettingsPath?: string
   contextTokenBudget?: number
   industrialSettingsPath?: string
   industrialDbPath?: string
@@ -80,6 +81,16 @@ function readModelSettings(path: string): StoredModelSettings | undefined {
     return { provider: parsed.provider, baseUrl: parsed.baseUrl, apiKey: parsed.apiKey, model: parsed.model }
   } catch {
     return undefined
+  }
+}
+
+function readDocumentExcerptConsent(path: string): boolean {
+  if (!existsSync(path)) return false
+  try {
+    const parsed = JSON.parse(readFileSync(path, 'utf8')) as { allowDocumentExcerpts?: unknown }
+    return parsed.allowDocumentExcerpts === true
+  } catch {
+    return false
   }
 }
 
@@ -137,6 +148,8 @@ export function createModelingPrediction(
 export async function createServer(options: ServerOptions = {}) {
   const app = Fastify({ logger: false, bodyLimit: 3_000_000 })
   const settingsPath = options.settingsPath ?? process.env.WETFLOW_SETTINGS_FILE ?? '.wetflow/model-settings.json'
+  const privacySettingsPath = options.privacySettingsPath ?? join(dirname(settingsPath), 'privacy-settings.json')
+  let allowDocumentExcerpts = readDocumentExcerptConsent(privacySettingsPath)
   let modelSettings = readModelSettings(settingsPath)
   if (!modelSettings) {
     const baseUrl = process.env.WETFLOW_MODEL_BASE_URL?.trim() ?? ''
@@ -175,6 +188,7 @@ export async function createServer(options: ServerOptions = {}) {
     ...(contextTokenBudget ? { contextTokenBudget } : {}),
     registerTools: registerAgentTools,
     additionalContext: runId => researchService?.context(runId) ?? '',
+    allowDocumentExcerpts: () => allowDocumentExcerpts,
   })
   const agent = ctx.wetflow
 
@@ -322,6 +336,15 @@ export async function createServer(options: ServerOptions = {}) {
     }
   })
   app.get('/api/model-settings', async () => publicModelSettings(modelSettings))
+  app.get('/api/privacy-settings', async () => ({ allowDocumentExcerpts }))
+  app.patch<{ Body: { allowDocumentExcerpts?: boolean } }>('/api/privacy-settings', async (request, reply) => {
+    if (typeof request.body?.allowDocumentExcerpts !== 'boolean') return reply.code(400).send({ error: 'allowDocumentExcerpts 必须是布尔值。' })
+    allowDocumentExcerpts = request.body.allowDocumentExcerpts
+    mkdirSync(dirname(privacySettingsPath), { recursive: true })
+    writeFileSync(privacySettingsPath, `${JSON.stringify({ allowDocumentExcerpts }, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 })
+    try { chmodSync(privacySettingsPath, 0o600) } catch { /* Windows may ignore POSIX modes. */ }
+    return { allowDocumentExcerpts }
+  })
   app.post<{ Body: { provider?: string; baseUrl?: string; apiKey?: string; model?: string } }>('/api/model-settings', async (request, reply) => {
     const provider = request.body.provider
     const baseUrl = request.body.baseUrl?.trim() ?? ''

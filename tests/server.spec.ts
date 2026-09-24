@@ -37,7 +37,8 @@ describe('WetFlow HTTP surface', () => {
       })
       expect(answer.statusCode).toBe(200)
       expect(answer.json().messages.at(-1).content).toContain('[证据: fermentation-notes.md#1]')
-      expect(answer.json().context).toMatchObject({ evidenceSources: 1, evidenceChunks: 1 })
+      // Local answering still reads and cites imported text without any cloud consent.
+      expect(answer.json().context).toMatchObject({ evidenceSources: 0, evidenceChunks: 0 })
     } finally {
       await app.close()
     }
