@@ -6,7 +6,7 @@ type Fetcher = typeof fetch;
 const MAX_RESULTS = 20;
 const MAX_BODY = 2_000_000;
 const TIMEOUT_MS = 12_000;
-const safeText = (s: string, max = 12_000) => s.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
+const safeText = (s: string, max = 12_000) => decodeXml(s).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
 const decodeXml = (s: string) => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&').replace(/&#(\d+);/g, (_, n: string) => String.fromCodePoint(Number(n))).replace(/&#x([\da-f]+);/gi, (_, n: string) => String.fromCodePoint(parseInt(n, 16)));
 function tag(xml: string, name: string): string { return decodeXml(xml.match(new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${name}>`, 'i'))?.[1] ?? ''); }
 function all(xml: string, name: string): string[] { return [...xml.matchAll(new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${name}>`, 'gi'))].map(m => decodeXml(m[1] ?? '')); }
@@ -99,7 +99,7 @@ export async function searchPublic(provider: ResearchProvider, query: string, li
   if (provider === 'europepmc') {
     const u = new URL('https://www.ebi.ac.uk/europepmc/webservices/rest/search'); u.search = new URLSearchParams({ query: q, format: 'json', pageSize: String(n), resultType: 'core' }).toString();
     const { body } = await request(u.toString(), fetcher, signal); const data = JSON.parse(body) as { resultList?: { result?: Record<string, unknown>[] } };
-    return (data.resultList?.result ?? []).slice(0, n).map(x => { const id = String(x.pmid ?? x.pmcid ?? ''); const pmcid = x.pmcid ? String(x.pmcid) : undefined; const license=typeof x.license==='string'&&x.license.trim()?x.license.trim():undefined; return { provider, externalId: id, title: String(x.title ?? ''), url: pmcid ? `https://europepmc.org/articles/${pmcid}` : `https://europepmc.org/article/MED/${id}`, ...(x.doi ? { doi: String(x.doi) } : {}), ...(x.authorString ? { authors: String(x.authorString) } : {}), ...(x.firstPublicationDate ? { year: String(x.firstPublicationDate).slice(0, 4) } : {}), ...(x.abstractText ? { abstract: safeText(String(x.abstractText)) } : {}), ...(pmcid ? { pmcid } : {}), licenseStatus:license?'known':'unknown', ...(license?{license}:{}) } as SearchHit; }).filter(x => x.externalId && x.title);
+    return (data.resultList?.result ?? []).slice(0, n).map(x => { const id = String(x.pmid ?? x.pmcid ?? ''); const pmcid = x.pmcid ? String(x.pmcid) : undefined; const license=typeof x.license==='string'&&x.license.trim()?x.license.trim():undefined; return { provider, externalId: id, title: safeText(String(x.title ?? ''), 2000), url: pmcid ? `https://europepmc.org/articles/${pmcid}` : `https://europepmc.org/article/MED/${id}`, ...(x.doi ? { doi: String(x.doi) } : {}), ...(x.authorString ? { authors: String(x.authorString) } : {}), ...(x.firstPublicationDate ? { year: String(x.firstPublicationDate).slice(0, 4) } : {}), ...(x.abstractText ? { abstract: safeText(String(x.abstractText)) } : {}), ...(pmcid ? { pmcid } : {}), licenseStatus:license?'known':'unknown', ...(license?{license}:{}) } as SearchHit; }).filter(x => x.externalId && x.title);
   }
   if (provider === 'arxiv') {
     const terms = q.match(/[\p{L}\p{N}_.+-]+/gu) ?? [];

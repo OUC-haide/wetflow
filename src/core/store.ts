@@ -325,7 +325,9 @@ export class WetFlowStore {
       const sourceName = String(row.source_name)
       const haystack = `${sourceName}\n${content}`.toLowerCase()
       const name = sourceName.toLowerCase()
-      let score = 0
+      // A user explicitly naming a document has selected its evidence. Keep all
+      // matching chunks ahead of generic prose containing common query words.
+      let score = terms.includes(name) ? 1_000 : 0
       for (const term of terms) {
         const occurrences = Math.min(3, haystack.split(term).length - 1)
         score += occurrences

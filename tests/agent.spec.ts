@@ -95,6 +95,21 @@ describe('WetFlowAgent approval boundary', () => {
     store.close()
   })
 
+  it('keeps explicitly named result chunks ahead of general methods prose', () => {
+    const { store, agent } = fixture()
+    const results = store.addEvidenceSource('MD-evidence-v2-derived.md',
+      'S1 RMSD 7.24 Å\n' + 'trajectory detail\n'.repeat(90) +
+      'S2 RMSD 8.13 Å; S3 RMSD 11.39 Å; ARG101 any-contact 1.000\n')
+    store.addEvidenceSource('methods.md',
+      'Use derived evidence to compare RMSD and contacts in a short table with sources.\n'.repeat(70))
+    const chunks = store.searchEvidence('Use MD-evidence-v2-derived.md: compare RMSD and contacts in a short table with sources.', 6)
+    expect(chunks.slice(0, results.chunkCount).every(chunk => chunk.sourceId === results.id)).toBe(true)
+    expect(chunks.some(chunk => chunk.content.includes('S3 RMSD 11.39'))).toBe(true)
+    expect(store.searchEvidence('short table with sources', 1)[0]?.sourceName).toBe('methods.md')
+    agent.dispose()
+    store.close()
+  })
+
   it('rewinds a user turn and generates a replacement response', async () => {
     const { store, agent } = fixture()
     const staged = await agent.chat('推进到下一步')

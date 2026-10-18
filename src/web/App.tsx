@@ -15,6 +15,7 @@ import {
 } from '../core/types.js'
 import { ModelingWorkspace } from './ModelingWorkspace.js'
 import { ResearchWorkspace } from './ResearchWorkspace.js'
+import { MessageContent } from './MessageContent.js'
 
 const EMPTY: AgentSnapshot = {
   connected: false,
@@ -237,7 +238,7 @@ function Message({ message, approval, editing, draft, busy, onEdit, onDraftChang
               <button className="button button--primary" disabled={busy || !draft.trim()} onClick={onSave}>{busy ? <LoaderCircle className="spin" size={13} /> : <RefreshCw size={13} />}更新并重试</button>
             </div>
           </div>
-          : <><p>{presentMessage(message.content)}</p>{!agent && <button className="message-edit" aria-label="编辑消息" title="编辑消息" onClick={onEdit}><Pencil size={12} /></button>}</>}
+          : <>{agent ? <MessageContent content={presentMessage(message.content)} /> : <p>{presentMessage(message.content)}</p>}{!agent && <button className="message-edit" aria-label="编辑消息" title="编辑消息" onClick={onEdit}><Pencil size={12} /></button>}</>}
         {approval && approval.status !== 'PENDING' && <ApprovalCard approval={approval} />}
       </div>
     </article>

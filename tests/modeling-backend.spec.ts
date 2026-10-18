@@ -5,7 +5,7 @@ import {
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ModelingService, type ModelingServiceOptions } from '../src/modeling/service.js'
 
 const RUN_ID = 'run-1'
@@ -150,8 +150,12 @@ describe('modeling scheduler, worker lifecycle and owned paths', () => {
     const firstDone = await waitTerminal(service, first.id, 10_000)
     expect(firstDone.status).toBe('TIMED_OUT')
     expect(firstDone.error).toMatch(/wall time/)
-    expect(existsSync(join(taskDir(dir, first.id), 'output.csv'))).toBe(false)
-    expect(existsSync(join(taskDir(dir, first.id), 'result.json'))).toBe(false)
+    // TIMED_OUT is published when termination is requested; artifacts are
+    // removed once the child closes. Wait for that separate lifecycle step.
+    await vi.waitFor(() => {
+      expect(existsSync(join(taskDir(dir, first.id), 'output.csv'))).toBe(false)
+      expect(existsSync(join(taskDir(dir, first.id), 'result.json'))).toBe(false)
+    }, { timeout: 5_000 })
 
     const second = submit(service, monod(), { wallTimeMs: 100, maxOutputRows: 100 })
     const secondDone = await waitTerminal(service, second.id, 10_000)
