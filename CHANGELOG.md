@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Package Evidence, Research, Modeling and Experiment as Cordis plugins with service and resource lifecycles.
+- Add atomic, revocable tool registration, live plugin controls, a callable registry probe, and a reproducible lifecycle report.
+- Remove unloaded capabilities from Agent schemas and REST access; clean up workers, searches and database connections while retaining records.
+
+
 ## 2026-10-18
 
 - Render saved assistant answers as Markdown with GFM tables, headings, lists and source links while retaining the original values and citations.

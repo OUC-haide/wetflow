@@ -563,6 +563,13 @@ export class ModelingService {
 
   async close(): Promise<void> {
     this.closed = true
+    for (const task of this.tasks.values()) {
+      if (task.status !== 'QUEUED') continue
+      task.status = 'FAILED'
+      task.error = 'Service shutdown'
+      task.finishedAt = new Date().toISOString()
+      this.persistTaskSafe(task)
+    }
     const jobs = [...this.active.values()]
     for (const [key, job] of this.active) {
       const task = this.tasks.get(key)

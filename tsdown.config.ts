@@ -5,6 +5,7 @@ export default defineConfig({
     core: 'src/core/index.ts',
     agent: 'src/agent/index.ts',
     cordis: 'src/cordis.ts',
+    plugins: 'src/plugins/index.ts',
     server: 'src/server.ts',
     cli: 'src/cli.ts',
   },

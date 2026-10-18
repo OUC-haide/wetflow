@@ -3,6 +3,7 @@ import { createInterface } from 'node:readline/promises'
 import { stdin, stdout } from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { createWetFlowContext } from './cordis.js'
+import { EvidencePlugin } from './plugins/index.js'
 import { WORKFLOW_STAGES } from './core/types.js'
 
 const colors = {
@@ -31,6 +32,7 @@ export async function runConsole(): Promise<void> {
     ...(contextTokenBudget ? { contextTokenBudget } : {}),
     allowDocumentExcerpts: () => allowDocumentExcerpts,
   })
+  await ctx.plugin(EvidencePlugin)
   const agent = ctx.wetflow
   stdout.write(`${colors.green}${colors.bold}WetFlow Cordis Agent${colors.reset}\n输入消息，或使用 /status、/approve <id>、/reject <id>、/wake、/exit。\n文献片段云端发送：${allowDocumentExcerpts ? '已开启（WETFLOW_ALLOW_DOCUMENT_EXCERPTS=true）' : '已关闭'}\n`)
   renderStatus(agent.snapshot())

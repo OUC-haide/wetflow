@@ -6,17 +6,11 @@ import Fastify from 'fastify'
 import type { FastifyReply } from 'fastify'
 import fastifyStatic from '@fastify/static'
 import { createWetFlowContext } from './cordis.js'
+import { createWetFlowPlugins, PLUGIN_IDS, type PluginId } from './plugins/index.js'
 import type { AgentEvent } from './core/types.js'
 import type { ReasoningEffort } from './agent/provider.js'
 import { OpenAICompatibleProvider } from './agent/provider.js'
-import type { ToolRegistry } from './agent/tools.js'
-import { registerIndustrialTools } from './agent/industrial-tools.js'
-import { registerModelingTools } from './agent/modeling-tools.js'
-import { registerResearchTools } from './agent/research-tools.js'
 import { registerResearchRoutes } from './research/routes.js'
-import { ResearchStore } from './research/store.js'
-import { ResearchService } from './research/service.js'
-import { ModelingService } from './modeling/service.js'
 import { IndustrialSettingsManager, IndustrialStore } from './industrial/index.js'
 import type {
   ActionInput,
@@ -47,6 +41,7 @@ export interface ServerOptions {
   industrialDbPath?: string
   modelingDataDir?: string
   researchDbPath?: string
+  plugins?: PluginId[]
 }
 
 interface StoredModelSettings {
@@ -160,25 +155,7 @@ export async function createServer(options: ServerOptions = {}) {
   const contextTokenBudget = options.contextTokenBudget ?? (process.env.WETFLOW_CONTEXT_TOKEN_BUDGET
     ? Number(process.env.WETFLOW_CONTEXT_TOKEN_BUDGET)
     : undefined)
-  // The industrial store and run resolver only exist after the agent context is
-  // built, so registration captures lazy accessors instead of values.
   const workflowDbPath = options.dbPath ?? process.env.WETFLOW_DB ?? '.wetflow/wetflow-agent.db'
-  let resolveIndustrialRunId: ((candidate?: unknown) => string) | undefined
-  let openIndustrialStore: (() => IndustrialStore) | undefined
-  let researchService: ResearchService | undefined
-  const registerAgentTools = (registry: ToolRegistry): void => {
-    registerIndustrialTools(registry, {
-      store: () => {
-        if (!openIndustrialStore) throw new Error('工业存储尚未就绪。')
-        return openIndustrialStore()
-      },
-      resolveRunId: candidate => {
-        if (!resolveIndustrialRunId) throw new Error('工作流运行上下文尚未就绪。')
-        return resolveIndustrialRunId(candidate)
-      },
-      actor: { id: 'wetflow-agent', role: 'agent' },
-    })
-  }
   const ctx = await createWetFlowContext({
     dbPath: workflowDbPath,
     modelBaseUrl: modelSettings?.baseUrl ?? '',
@@ -186,8 +163,7 @@ export async function createServer(options: ServerOptions = {}) {
     model: modelSettings?.model ?? '',
     models: (process.env.WETFLOW_MODELS ?? '').split(',').map(value => value.trim()).filter(Boolean),
     ...(contextTokenBudget ? { contextTokenBudget } : {}),
-    registerTools: registerAgentTools,
-    additionalContext: runId => researchService?.context(runId) ?? '',
+    additionalContext: runId => ctx.wetflowResearch?.context(runId) ?? '',
     allowDocumentExcerpts: () => allowDocumentExcerpts,
   })
   const agent = ctx.wetflow
@@ -200,14 +176,10 @@ export async function createServer(options: ServerOptions = {}) {
     ?? '.wetflow/industrial.db'
   const industrialDatabasePath = storedIndustrialDatabase(industrialSettingsFile) ?? industrialDefaultDb
   const industrialSettings = new IndustrialSettingsManager(industrialSettingsFile, industrialDatabasePath)
-  // The industrial database is opened on first use so a workflow-only install
-  // never creates it.
-  let industrial: IndustrialStore | undefined
   const industrialStore = (): IndustrialStore => {
-    industrial ??= new IndustrialStore(industrialDatabasePath)
-    return industrial
+    if (!ctx.wetflowExperiment) throw new Error('Experiment Plugin is unloaded')
+    return ctx.wetflowExperiment.store()
   }
-  openIndustrialStore = industrialStore
 
   const workflowRunIds = (): Set<string> => new Set(agent.store.workflowRuns().map(run => run.id))
   const resolveRunId = (candidate?: unknown): string => {
@@ -216,36 +188,62 @@ export async function createServer(options: ServerOptions = {}) {
     if (!workflowRunIds().has(runId)) throw new Error('工作流运行不存在。')
     return runId
   }
-  resolveIndustrialRunId = resolveRunId
-  if (!agent.tools.has('industrial_parameter_list')) registerAgentTools(agent.tools)
-
-  // Local numerical modeling shares the same run-scoped service as REST. The
-  // service is opened lazily and the run resolver is the same one the industrial
-  // tools use, so a task or prediction can never cross a workflow run boundary.
-  const modelingDataDir = options.modelingDataDir ?? process.env.WETFLOW_MODELING_DIR ?? '.wetflow/modeling'
-  let modeling: ModelingService | undefined
-  const modelingService = (): ModelingService => {
-    modeling ??= new ModelingService({
-      dataDir: modelingDataDir,
-      validateRunId: runId => { resolveRunId(runId) },
+  const modelingService = () => {
+    if (!ctx.wetflowModeling) throw new Error('Modeling Plugin is unloaded')
+    return ctx.wetflowModeling
+  }
+  const researchService = () => {
+    if (!ctx.wetflowResearch) throw new Error('Research Plugin is unloaded')
+    return ctx.wetflowResearch
+  }
+  const plugins = await createWetFlowPlugins(ctx, {
+    experiment: { dbPath: industrialDatabasePath },
+    modeling: {
+      dataDir: options.modelingDataDir ?? process.env.WETFLOW_MODELING_DIR ?? '.wetflow/modeling',
       createPrediction: (runId, input) => createModelingPrediction(industrialStore(), runId, input),
       linkPrediction: (runId, predictionId, experimentRef, note) => {
         const prediction = industrialStore().prediction(predictionId)
         if (!prediction || prediction.workflowRunId !== runId) throw new Error('预测不存在。')
         industrialStore().linkPredictionExperiment(predictionId, experimentRef, note, { id: 'wetflow-modeling-agent', role: 'application' })
       },
-    })
-    return modeling
-  }
-  if (!agent.tools.has('modeling_methods')) {
-    registerModelingTools(agent.tools, () => modelingService(), candidate => resolveRunId(candidate))
-  }
-  const researchDbPath = options.researchDbPath ?? process.env.WETFLOW_RESEARCH_DB ?? (workflowDbPath === ':memory:' ? ':memory:' : join(dirname(workflowDbPath), 'research.db'))
-  const researchStore = new ResearchStore(researchDbPath)
-  researchService = new ResearchService({ store: researchStore, validateRunId: runId => { resolveRunId(runId) }, modeling: modelingService })
-  if (!agent.tools.has('research_profile')) {
-    registerResearchTools(agent.tools, () => { if (!researchService) throw new Error('研究服务尚未就绪。'); return researchService }, candidate => resolveRunId(candidate))
-  }
+    },
+    research: {
+      dbPath: options.researchDbPath ?? process.env.WETFLOW_RESEARCH_DB ?? (workflowDbPath === ':memory:' ? ':memory:' : join(dirname(workflowDbPath), 'research.db')),
+      modeling: modelingService,
+    },
+  })
+  try {
+    for (const id of options.plugins ?? PLUGIN_IDS) await plugins.load(id)
+  } catch (error) { await ctx.fiber.dispose(); throw error }
+
+  // Routes resolve services on each request; unloading cannot leave a live REST backdoor.
+  app.addHook('preHandler', async (request, reply) => {
+    const path = request.url.split('?')[0] ?? ''
+    const id = path.startsWith('/api/modeling/') ? 'modeling'
+      : path.startsWith('/api/research/') ? 'research'
+      : path.startsWith('/api/industrial/') ? 'experiment'
+      : path === '/api/evidence' ? 'evidence' : undefined
+    if (id && !plugins.snapshot().plugins.find(plugin => plugin.id === id)?.loaded) {
+      return reply.code(503).send({ error: `${id} Plugin is unloaded`, plugin: id })
+    }
+  })
+  app.get('/api/plugins', async () => plugins.snapshot())
+  app.post<{ Params: { id: string; action: string } }>('/api/plugins/:id/:action', async (request, reply) => {
+    const { id, action } = request.params
+    if (!PLUGIN_IDS.includes(id as PluginId) || !['load', 'unload'].includes(action)) return reply.code(404).send({ error: 'Unknown plugin or action' })
+    if (agent.snapshot().agentState === 'THINKING') return reply.code(409).send({ error: 'Wait for the current Agent turn to finish' })
+    try {
+      const result = await plugins[action as 'load' | 'unload'](id as PluginId)
+      agent.events.emit('event', { type: 'snapshot', snapshot: agent.snapshot() })
+      return result
+    }
+    catch (error) { return reply.code(400).send({ error: error instanceof Error ? error.message : String(error) }) }
+  })
+  app.get('/api/plugins/modeling-probe', async (_request, reply) => {
+    try {
+      return { tool: 'modeling_methods', result: await agent.tools.get('modeling_methods').execute({}) }
+    } catch (error) { return reply.code(409).send({ tool: 'modeling_methods', available: false, error: error instanceof Error ? error.message : String(error) }) }
+  })
   const industrialError = (reply: FastifyReply, error: unknown) => {
     const message = error instanceof Error ? error.message : String(error)
     const missing = message === '工作流运行不存在。' || message.endsWith('不存在。')
@@ -261,10 +259,10 @@ export async function createServer(options: ServerOptions = {}) {
 
   app.get('/health', async () => ({ ok: true, framework: 'cordis', service: 'wetflow-agent' }))
   app.get('/api/snapshot', async () => agent.snapshot())
-  app.get('/api/evidence', async () => ({ items: agent.store.evidenceSources() }))
+  app.get('/api/evidence', async () => ({ items: ctx.wetflowEvidence!.sources() }))
   app.post<{ Body: { name?: string; content?: string; mimeType?: string } }>('/api/evidence', async (request, reply) => {
     try {
-      return agent.store.addEvidenceSource(
+      return ctx.wetflowEvidence!.add(
         request.body.name ?? '', request.body.content ?? '', request.body.mimeType ?? 'text/plain',
       )
     } catch (error) {
@@ -738,10 +736,7 @@ export async function createServer(options: ServerOptions = {}) {
   }
 
   app.addHook('onClose', async () => {
-    await modeling?.close()
-    await researchService?.close()
-    researchStore.close()
-    industrial?.close()
+    await plugins.close()
     await ctx.fiber.dispose()
   })
   return app

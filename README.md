@@ -29,4 +29,8 @@ Europe PMC 支持可获取的开放全文；arXiv 当前读取摘要，GEO 当�
 npm run check
 ```
 
-包含 TypeScript 检查、生产构建及测试。当前更新通过 22 个测试文件中的 177 项测试，更新内容见 [CHANGELOG.md](CHANGELOG.md)。
+包含 TypeScript 检查、生产构建及测试。本次回归验证通过 186 项测试，其中包括 10 项插件生命周期测试；另有 1 项审计链测试未在本轮执行。更新内容见 [CHANGELOG.md](CHANGELOG.md)。
+
+## Plugin lifecycle
+
+Evidence, Research, Modeling and Experiment are independently loadable Cordis plugins. Open **Plugin lifecycle** in the workbench to inspect the live registry, load/unload a module and call a modeling tool before and after removal. Run `npm run demo:plugins` to export a reproducible registry comparison. See [plugin lifecycle and test instructions](docs/plugin-lifecycle.md).

@@ -45,6 +45,8 @@ export interface WetFlowAgentOptions {
   additionalContext?: (workflowRunId: string) => string
   /** Consent for sending automatically retrieved document text to a cloud model. */
   allowDocumentExcerpts?: () => boolean
+  /** Cordis hosts resolve this dynamically so unloading Evidence removes retrieval. */
+  evidenceSearch?: (query: string, limit: number) => ReturnType<WetFlowStore['searchEvidence']>
 }
 
 export class WetFlowAgent {
@@ -189,7 +191,7 @@ export class WetFlowAgent {
       return this.snapshot()
     }
 
-    const evidence = this.store.searchEvidence(normalized, 3)
+    const evidence = this.searchEvidence(normalized, 3)
     if (evidence.length > 0 && (/资料|证据|文件|记录|文献|数据|结果|查找|检索|根据|显示/.test(normalized)
       || (evidence[0]?.score ?? 0) >= 6)) {
       const excerpts = evidence.map(chunk => {
@@ -525,13 +527,17 @@ export class WetFlowAgent {
       workflow,
       conversationId: this.store.activeConversationId(),
       ...(memory ? { memory } : {}),
-      evidence: documentConsent ? this.store.searchEvidence(query ?? latestUserMessage?.content ?? '', 6) : [],
+      evidence: documentConsent ? this.searchEvidence(query ?? latestUserMessage?.content ?? '', 6) : [],
       messages: documentConsent ? messages : (latestUserMessage ? [latestUserMessage] : []),
       // Match the provider request: full definitions include the JSON Schema
       // that actually consumes tokens. `risk` is a short extra label only.
       tools: this.tools.definitions(),
       tokenBudget: this.options.contextTokenBudget ?? 6_000,
     })
+  }
+
+  private searchEvidence(query: string, limit: number): ReturnType<WetFlowStore['searchEvidence']> {
+    return this.options.evidenceSearch ? this.options.evidenceSearch(query, limit) : this.store.searchEvidence(query, limit)
   }
 }
 
@@ -541,7 +547,8 @@ function normalizeToolCalls(turn: ModelTurn): ModelToolCall[] {
 }
 
 const DOCUMENT_TEXT_FIELDS = new Set(['text', 'abstract', 'snippet', 'evidencequote', 'quote', 'body', 'fulltext', 'content'])
-const DOCUMENT_TOOL_BLOCKLIST = new Set(['research_fetch_source', 'research_source_read', 'research_records', 'research_query', 'research_record_add'])
+const DOCUMENT_TOOL_BLOCKLIST = new Set([
+  'evidence_search','research_fetch_source', 'research_source_read', 'research_records', 'research_query', 'research_record_add'])
 
 function documentConsentForTool(allowed: boolean, name: string): boolean {
   return allowed || !DOCUMENT_TOOL_BLOCKLIST.has(name)

@@ -17,7 +17,8 @@
     ".": "./dist/node/cordis.js",
     "./core": "./dist/node/core.js",
     "./agent": "./dist/node/agent.js",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./plugins": "./dist/node/plugins.js"
   },
   "bin": {
     "wetflow": "./dist/node/cli.js",
@@ -41,7 +42,8 @@
     "build": "npm run typecheck && npm run bundle:node && npm run bundle:web",
     "test": "vitest run --testTimeout=15000",
     "check": "npm run build && npm run test",
-    "verify:release": "npm run check && npm pack --dry-run"
+    "verify:release": "npm run check && npm pack --dry-run",
+    "demo:plugins": "tsx scripts/plugin-lifecycle-demo.ts"
   },
   "engines": {
     "node": ">=22.19"

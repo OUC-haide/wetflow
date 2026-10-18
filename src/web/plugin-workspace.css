@@ -1,0 +1,53 @@
+.plugin-workspace { overflow-y: auto; flex: 1; min-height: 0; padding: 36px clamp(20px, 4vw, 64px) 50px; color: var(--ink); }
+.plugin-workspace h1, .plugin-workspace h2, .plugin-workspace h3, .plugin-workspace p { margin: 0; }
+.plugin-workspace button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 0; border-radius: 6px; padding: 8px 12px; background: var(--shade-2); color: var(--ink); font-size: 12px; font-weight: 600; }
+.plugin-workspace button:hover { background: var(--line-strong); }
+.plugin-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.plugin-heading h1 { font-size: clamp(22px, 2.5vw, 32px); font-weight: 600; letter-spacing: -.6px; }
+.plugin-heading p { color: var(--ink-soft); margin-top: 10px; font-size: 14px; line-height: 1.5; }
+.plugin-sequence { display: flex; list-style-position: inside; gap: 22px; padding: 18px 0; margin: 20px 0 26px; border-block: 1px solid var(--line); font-size: 13px; color: var(--ink-soft); flex-wrap: wrap; }
+.plugin-columns { display: grid; grid-template-columns: minmax(240px, .9fr) minmax(330px, 1.3fr); gap: 36px; align-items: start; }
+.plugin-workspace h2 { font-size: 17px; font-weight: 600; }
+.plugin-help, .plugin-tools-heading p { font-size: 12px; color: var(--muted); line-height: 1.6; margin-top: 7px !important; }
+.plugin-module { padding: 17px 0; border-bottom: 1px solid var(--line); }
+.plugin-module--focus { padding: 17px 14px; margin-inline: -14px; background: var(--accent-soft); border-radius: 9px; border: 0; }
+.plugin-module-title { display: flex; gap: 9px; align-items: center; }
+.plugin-module h3 { font-size: 14px; font-weight: 600; }
+.plugin-module p { color: var(--ink-soft); font-size: 12px; line-height: 1.65; margin-top: 9px; }
+.plugin-status { margin-left: auto; font-size: 11px; color: var(--muted); white-space: nowrap; }
+.plugin-status.is-loaded { color: var(--accent-ink); }
+.plugin-module-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 11px; gap: 10px; }
+.plugin-module-foot span { color: var(--muted); font-size: 11px; }
+.plugin-agent-tools { background: var(--shade); border-radius: 10px; padding: 24px; }
+.plugin-tools-heading, .plugin-trace-heading { display: flex; justify-content: space-between; gap: 15px; align-items: center; }
+.plugin-live { color: var(--accent-ink); display: flex; gap: 5px; align-items: center; font-size: 11px; }
+.plugin-live span { display: inline-block; height: 6px; width: 6px; background: currentColor; border-radius: 50%; }
+.plugin-capability { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin: 26px 0 14px; }
+.plugin-capability h3 { font-size: 13px; }
+.plugin-capability span { font-size: 11px; color: var(--muted); }
+.plugin-tool-list { display: grid; grid-template-columns: 1fr; padding: 0; margin: 0; list-style: none; min-height: 235px; gap: 8px; }
+.plugin-tool-list li { display: flex; align-items: center; gap: 10px; color: var(--accent-ink); }
+.plugin-workspace code { font-size: 11px; font-family: var(--mono); overflow-wrap: anywhere; color: var(--ink-soft); }
+.plugin-empty { min-height: 235px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 15px; color: var(--muted); }
+.plugin-empty strong { color: var(--ink); font-size: 15px; }
+.plugin-empty p { font-size: 12px; line-height: 1.65; max-width: 310px; }
+.plugin-probe { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding-top: 23px; }
+.plugin-probe button { background: var(--accent); color: var(--paper); }
+.plugin-probe button:hover { background: var(--accent-ink); color: var(--paper); }
+.plugin-probe p { font-size: 11px; color: var(--muted); }
+.plugin-probe-result { margin-top: 16px; background: var(--paper); border-radius: 6px; padding: 14px; font-size: 12px; }
+.plugin-probe-result strong { font-size: 12px; }
+.plugin-probe-result p { margin-top: 8px; line-height: 1.6; color: var(--ink-soft); }
+.plugin-probe-result ul { padding-left: 17px; margin: 10px 0 0; line-height: 1.8; }
+.plugin-probe-result code { display: block; }
+.plugin-other-tools { margin-top: 19px; font-size: 12px; color: var(--muted); }
+.plugin-other-tools ul { padding-left: 18px; line-height: 1.8; }
+.plugin-other-tools summary { cursor: pointer; }
+.plugin-trace { margin-top: 30px; }
+.plugin-trace-scroll { overflow-x: auto; }
+.plugin-trace table { border-collapse: collapse; width: 100%; margin-top: 14px; font-size: 12px; text-align: left; }
+.plugin-trace th { color: var(--muted); font-weight: 500; }
+.plugin-trace th, .plugin-trace td { padding: 10px 12px 10px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.plugin-error { background: var(--danger-soft); color: var(--danger); padding: 12px; margin-bottom: 15px !important; border-radius: 6px; font-size: 13px; }
+@media (min-width: 1400px) { .plugin-tool-list { grid-template-columns: 1fr 1fr; gap: 15px; } }
+@media (max-width: 780px) { .plugin-columns { grid-template-columns: 1fr; gap: 28px; } .plugin-heading { flex-direction: column; } .plugin-sequence { gap: 12px 22px; } .plugin-agent-tools { padding: 20px; } .plugin-trace-heading { flex-wrap: wrap; } }

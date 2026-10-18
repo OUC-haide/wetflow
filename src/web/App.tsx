@@ -3,7 +3,7 @@ import {
   Activity, ArrowDown, ArrowUp, Bot, BrainCircuit, Check, ChevronDown, ChevronRight,
   Circle, Clock3, Database, FileText, FlaskConical, FolderKanban, GitBranch, History, KeyRound, LoaderCircle, Menu, MessageSquare, Moon, Paperclip, Pencil,
   PanelRight, Play, Plus, RefreshCw, Settings2, ShieldCheck, Sparkles, Sun, Wrench, X,
-  XCircle,
+  XCircle, Plug,
 } from 'lucide-react'
 import {
   WORKFLOW_STAGES,
@@ -16,6 +16,7 @@ import {
 import { ModelingWorkspace } from './ModelingWorkspace.js'
 import { ResearchWorkspace } from './ResearchWorkspace.js'
 import { MessageContent } from './MessageContent.js'
+import { PluginWorkspace } from './PluginWorkspace.js'
 
 const EMPTY: AgentSnapshot = {
   connected: false,
@@ -385,6 +386,7 @@ export function App() {
   const [toolsOpen, setToolsOpen] = useState(false)
   const [modelingOpen, setModelingOpen] = useState(false)
   const [researchOpen, setResearchOpen] = useState(false)
+  const [pluginsOpen, setPluginsOpen] = useState(() => new URLSearchParams(window.location.search).get('view') === 'plugins')
   const [conversationList, setConversationList] = useState<ConversationList>({ activeId: '', items: [] })
   const [editingConversationId, setEditingConversationId] = useState<string>()
   const [conversationTitleDraft, setConversationTitleDraft] = useState('')
@@ -881,11 +883,12 @@ export function App() {
         <div className="brand-mark"><FlaskConical size={16} /></div>
         <button className="rail-button rail-new-chat" aria-label="新建对话" title="新建对话" disabled={busy} onClick={() => void newConversation()}><Plus size={18} /></button>
         <button className={`rail-button ${workspaceMenuOpen ? 'rail-button--active' : ''}`} aria-label="项目与工作流运行" aria-expanded={workspaceMenuOpen} onClick={toggleWorkspaceMenu}><FolderKanban size={17} /></button>
-        <button className={`rail-button ${modelingOpen ? 'rail-button--active' : ''}`} aria-label="生物过程建模" title="生物过程建模" aria-pressed={modelingOpen} onClick={() => { setModelingOpen(value => !value); setResearchOpen(false) }}><FlaskConical size={17} /></button>
-        <button className={`rail-button ${researchOpen ? 'rail-button--active' : ''}`} aria-label="搜索建库" title="搜索建库" aria-pressed={researchOpen} onClick={() => { setResearchOpen(value => !value); setModelingOpen(false) }}><Database size={17} /></button>
+        <button className={`rail-button ${modelingOpen ? 'rail-button--active' : ''}`} aria-label="生物过程建模" title="生物过程建模" aria-pressed={modelingOpen} onClick={() => { setModelingOpen(value => !value); setResearchOpen(false); setPluginsOpen(false) }}><FlaskConical size={17} /></button>
+        <button className={`rail-button ${researchOpen ? 'rail-button--active' : ''}`} aria-label="搜索建库" title="搜索建库" aria-pressed={researchOpen} onClick={() => { setResearchOpen(value => !value); setModelingOpen(false); setPluginsOpen(false) }}><Database size={17} /></button>
         <button className={`rail-button ${conversationMenuOpen ? 'rail-button--active' : ''}`} aria-label="对话列表" aria-expanded={conversationMenuOpen} onClick={toggleConversationMenu}><MessageSquare size={17} /></button>
         <button className={`rail-button ${panelOpen ? 'rail-button--active' : ''}`} aria-label={panelOpen ? '隐藏工作流' : '查看工作流'} onClick={() => setPanelOpen(value => !value)}><Activity size={17} /></button>
         <button className={`rail-button ${toolsOpen ? 'rail-button--active' : ''}`} aria-label="工具与唤醒" aria-expanded={toolsOpen} onClick={() => { setToolsOpen(value => !value); setConversationMenuOpen(false); setWorkspaceMenuOpen(false); setEvidenceOpen(false) }}><Wrench size={16} /></button>
+        <button className={`rail-button ${pluginsOpen ? 'rail-button--active' : ''}`} aria-label="Plugin lifecycle" title="Plugin lifecycle" aria-pressed={pluginsOpen} onClick={() => { setPluginsOpen(value => !value); setModelingOpen(false); setResearchOpen(false); setPanelOpen(false) }}><Plug size={17} /></button>
         <div className="rail-spacer" />
         <button className="icon-button" aria-label={dark ? '切换为浅色外观' : '切换为深色外观'} aria-pressed={dark} onClick={() => setDark(value => !value)}>{dark ? <Sun size={15} /> : <Moon size={15} />}</button>
         <button className={`icon-button ${settingsOpen ? 'icon-button--active' : ''}`} aria-label="模型设置" aria-haspopup="dialog" onClick={() => void openSettings()}><Settings2 size={15} /></button>
@@ -903,17 +906,19 @@ export function App() {
           <div className="topbar__actions">
             <button className="mobile-theme" aria-label="新建对话" title="新建对话" disabled={busy} onClick={() => void newConversation()}><Plus size={16} /></button>
             <button className="mobile-theme" aria-label="对话列表" aria-expanded={conversationMenuOpen} onClick={toggleConversationMenu}><History size={15} /></button>
-            <button className="mobile-theme" aria-label="搜索建库" aria-pressed={researchOpen} onClick={() => { setResearchOpen(value => !value); setModelingOpen(false) }}><Database size={15} /></button>
+            <button className="mobile-theme" aria-label="搜索建库" aria-pressed={researchOpen} onClick={() => { setResearchOpen(value => !value); setModelingOpen(false); setPluginsOpen(false) }}><Database size={15} /></button>
             <button className="mobile-theme" aria-label="工具与唤醒" aria-expanded={toolsOpen} onClick={() => { setToolsOpen(value => !value); setConversationMenuOpen(false); setWorkspaceMenuOpen(false); setEvidenceOpen(false) }}><Wrench size={15} /></button>
             <button className="mobile-theme" aria-label={dark ? '切换为浅色外观' : '切换为深色外观'} aria-pressed={dark} onClick={() => setDark(value => !value)}>{dark ? <Sun size={15} /> : <Moon size={15} />}</button>
             <button className="mobile-theme" aria-label="模型设置" aria-haspopup="dialog" onClick={() => void openSettings()}><Settings2 size={15} /></button>
             <button className={`agent-pill agent-pill--${state.tone}`} onClick={() => setPanelOpen(true)} aria-label={`${state.label}，打开工作流状态`} aria-live="polite">
-              <span className="status-dot" /><span><strong>{state.label}</strong><small>{state.detail}</small></span><PanelRight size={14} />
+              <span className="status-dot" /><span><strong>{pluginsOpen ? ({ READY: 'Agent ready', THINKING: 'Agent working', WAITING: 'Awaiting approval', PAUSED: 'Workflow paused' }[snapshot.agentState]) : state.label}</strong><small>{pluginsOpen ? (snapshot.connected ? 'Local service running' : 'Connecting to service') : state.detail}</small></span><PanelRight size={14} />
             </button>
           </div>
         </header>
 
-        {researchOpen
+        {pluginsOpen
+          ? <PluginWorkspace />
+          : researchOpen
           ? <ResearchWorkspace key={workspaceCatalog.activeWorkflowRunId || snapshot.workflow.id} runId={workspaceCatalog.activeWorkflowRunId || snapshot.workflow.id} />
           : modelingOpen
           ? <ModelingWorkspace key={workspaceCatalog.activeWorkflowRunId || snapshot.workflow.id} runId={workspaceCatalog.activeWorkflowRunId || snapshot.workflow.id} />
