@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add a saved-report `md_compare_feeds` extension with common-window checks, consistent contact counts and explicit model assumptions.
+- Add project-scoped Education tools that reuse exact Evidence citations, check audience/resources and return the complete WEAVE design cycle.
+- Correct WEAVE's interpretation: the classroom timetable belongs to Action; Verify and Echo remain prospective until evidence and later iteration are available.
+- Include portable sample reports, six attributed Education source documents, seven experience cards and offline reproduction commands.
+- Use a repository-local feed fixture in the comparison tests instead of a private workspace path.
+
 - Package Evidence, Research, Modeling and Experiment as Cordis plugins with service and resource lifecycles.
 - Add atomic, revocable tool registration, live plugin controls, a callable registry probe, and a reproducible lifecycle report.
 - Remove unloaded capabilities from Agent schemas and REST access; clean up workers, searches and database connections while retaining records.

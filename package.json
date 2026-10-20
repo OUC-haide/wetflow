@@ -43,7 +43,10 @@
     "test": "vitest run --testTimeout=15000",
     "check": "npm run build && npm run test",
     "verify:release": "npm run check && npm pack --dry-run",
-    "demo:plugins": "tsx scripts/plugin-lifecycle-demo.ts"
+    "demo:plugins": "tsx scripts/plugin-lifecycle-demo.ts",
+    "demo:feeds": "tsx scripts/feed-comparison-demo.ts",
+    "demo:design": "tsx scripts/design-validation-cases.ts",
+    "demo:education": "tsx scripts/education-demo.ts"
   },
   "engines": {
     "node": ">=22.19"

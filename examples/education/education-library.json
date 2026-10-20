@@ -1,0 +1,185 @@
+{
+  "cards": [
+    {
+      "id": "ouc-weave",
+      "title": "WEAVE: objective-led education and feedback",
+      "document": "OUC-EDU-WEAVE.md",
+      "url": "sources/OUC-EDU-WEAVE.md",
+      "location": "Supplied team education document, pp. 2–3",
+      "audiences": [
+        "mixed"
+      ],
+      "topics": [
+        "objectives",
+        "feedback",
+        "learning",
+        "audience"
+      ],
+      "practice": "Wonder defines audience needs; Explore sets learning goals; Action implements; Verify examines learning; Echo uses feedback for the next revision.",
+      "reflection": "The team framework connects activity choices to audience needs and subsequent improvement.",
+      "adaptation": "Use the phases to explain why each activity is included and how understanding will be checked.",
+      "requiredResources": [],
+      "owner": "OUC-Haide",
+      "year": 2026
+    },
+    {
+      "id": "ouc-route-puzzle",
+      "title": "Plant-to-product route-card workshop",
+      "document": "OUC-EDU-JOINT-IDEAS.md",
+      "url": "https://static.igem.wiki/teams/6147/wiki/education/6-3-1-milestone-01-ouc-haide-initial-ideas.pdf",
+      "location": "Joint design proposal: green manufacturing route puzzle",
+      "audiences": [
+        "secondary"
+      ],
+      "topics": [
+        "waste",
+        "biomanufacturing",
+        "fermentation",
+        "PMA",
+        "cards",
+        "classroom"
+      ],
+      "practice": "The proposal asks learners to arrange raw-material, conversion and product cards, compare two project routes and justify a new waste-use choice.",
+      "reflection": "The proposal recommends an accessible process-level story and lists learner explanations and decision reasons as intended evaluation records.",
+      "adaptation": "Use a printed route puzzle with short group explanations in a classroom without laboratory equipment. Treat the new agenda as a proposed adaptation.",
+      "requiredResources": [
+        "paper"
+      ],
+      "owner": "OUC-Haide",
+      "year": 2026
+    },
+    {
+      "id": "ouc-refinement",
+      "title": "Adapt the detection activity to available equipment",
+      "document": "OUC-EDU-REFINEMENT.md",
+      "url": "sources/OUC-EDU-REFINEMENT.md",
+      "location": "Supplied team education document, p. 12",
+      "audiences": [
+        "secondary"
+      ],
+      "topics": [
+        "equipment",
+        "iteration",
+        "measurement",
+        "evidence",
+        "classroom"
+      ],
+      "practice": "The team draft describes replacing a fluorescence-identification activity after a pre-test did not yield a clear distinction; digital pH meters offered an alternative.",
+      "reflection": "The narrative links the redesign to an observed implementation limitation and the partner laboratory resources.",
+      "adaptation": "Pre-test the educational task. For a classroom-only plan, use prepared evidence cards instead of assuming access to an instrument.",
+      "requiredResources": [],
+      "owner": "OUC-Haide",
+      "year": 2026
+    },
+    {
+      "id": "ouc-dna-builder",
+      "title": "DNA builder: pair and inspect bases",
+      "document": "OUC-EDU-ACTIVITIES.md",
+      "url": "https://gitlab.igem.org/2026/ouc-haide/-/blob/main/src/contents/activityCatalog.ts",
+      "location": "ACTIVITIES: dna entry",
+      "audiences": [
+        "primary",
+        "secondary"
+      ],
+      "topics": [
+        "DNA",
+        "bases",
+        "hands-on",
+        "digital",
+        "structure"
+      ],
+      "practice": "The implemented resource lets users assemble nucleotides and inspect base pairing and a two- or three-dimensional helix.",
+      "reflection": "The repository describes functionality; it does not report an evaluated learning gain.",
+      "adaptation": "Use a projected worked example followed by paper base-pair cards and a short explanation task.",
+      "requiredResources": [
+        "laptop",
+        "projector"
+      ],
+      "owner": "OUC-Haide",
+      "year": 2026
+    },
+    {
+      "id": "ouc-fermentation-map",
+      "title": "Fermentation map: connect microbes and familiar foods",
+      "document": "OUC-EDU-ACTIVITIES.md",
+      "url": "https://gitlab.igem.org/2026/ouc-haide/-/blob/main/src/contents/activityCatalog.ts",
+      "location": "ACTIVITIES: fermentation entry",
+      "audiences": [
+        "primary",
+        "secondary"
+      ],
+      "topics": [
+        "fermentation",
+        "food",
+        "microbes",
+        "conditions",
+        "virtual lab"
+      ],
+      "practice": "The resource connects familiar fermented foods with microbial conditions through a regional map and virtual lab.",
+      "reflection": "The catalog records the resource purpose and interface, rather than an educational-impact measurement.",
+      "adaptation": "Ask learners to compare two familiar examples and state which conditions a microbial process needs.",
+      "requiredResources": [
+        "laptop",
+        "projector"
+      ],
+      "owner": "OUC-Haide",
+      "year": 2026
+    },
+    {
+      "id": "heidelberg-platform",
+      "title": "Heidelberg: explanation, practice and quiz",
+      "document": "HEIDELBERG-2025-EDUCATION.md",
+      "url": "https://2025.igem.wiki/heidelberg/education",
+      "location": "Interactive Learning Platform",
+      "audiences": [
+        "secondary",
+        "university"
+      ],
+      "topics": [
+        "digital",
+        "feedback",
+        "quiz",
+        "learning",
+        "classroom",
+        "protocol"
+      ],
+      "practice": "Heidelberg combined illustrated protocols, calculators and quizzes; learner feedback informed the addition of laboratory videos.",
+      "reflection": "The report links complementary formats to feedback from students and educators.",
+      "adaptation": "Follow one short illustrated explanation with a worked example and a check-for-understanding question.",
+      "requiredResources": [
+        "laptop",
+        "projector"
+      ],
+      "owner": "Heidelberg",
+      "year": 2025
+    },
+    {
+      "id": "buct-tactile",
+      "title": "BUCT: drawing-to-clay learning with individual support",
+      "document": "BUCT-2025-EDUCATION.md",
+      "url": "https://2025.igem.wiki/buct/education",
+      "location": "Equ-Globalizing: children with special educational needs",
+      "audiences": [
+        "primary"
+      ],
+      "topics": [
+        "inclusive",
+        "drawing",
+        "clay",
+        "tactile",
+        "children",
+        "feedback"
+      ],
+      "practice": "BUCT used illustrated explanations, drawings and colored-clay models, with individual facilitator support.",
+      "reflection": "Teacher reflections and participant creations were used as feedback about participation and understanding.",
+      "adaptation": "Offer drawing and tactile options; collect a learner explanation and a facilitator observation rather than relying on speed or a written quiz.",
+      "requiredResources": [
+        "paper",
+        "colored pens",
+        "clay"
+      ],
+      "owner": "BUCT",
+      "year": 2025
+    }
+  ]
+}
