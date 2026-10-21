@@ -17,6 +17,7 @@ import { ModelingWorkspace } from './ModelingWorkspace.js'
 import { ResearchWorkspace } from './ResearchWorkspace.js'
 import { MessageContent } from './MessageContent.js'
 import { PluginWorkspace } from './PluginWorkspace.js'
+import { isReasoningEffort, type ReasoningEffort, type ReasoningConfig } from '../agent/reasoning.js'
 
 const EMPTY: AgentSnapshot = {
   connected: false,
@@ -34,11 +35,9 @@ const EMPTY: AgentSnapshot = {
   approvals: [], messages: [], activity: [], tools: [], turn: null,
 }
 
-type ReasoningEffort = 'low' | 'medium' | 'high'
-
 interface ModelCatalog {
   enabled: boolean
-  models: Array<{ id: string; label: string }>
+  models: Array<{ id: string; label: string; reasoning?: ReasoningConfig }>
   defaultModel: string
   reasoningEfforts: Array<{ id: ReasoningEffort; label: string; description: string }>
   defaultReasoningEffort: ReasoningEffort
@@ -404,8 +403,14 @@ export function App() {
   })
   const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>(() => {
     const saved = window.localStorage.getItem('wetflow.reasoningEffort')
-    return saved === 'low' || saved === 'high' ? saved : 'medium'
+    return isReasoningEffort(saved) ? saved : 'medium'
   })
+  const selectedReasoning = useMemo(() => modelCatalog.models
+    .find(item => item.id === (selectedModel || modelCatalog.defaultModel))?.reasoning
+    ?? { efforts: modelCatalog.reasoningEfforts, defaultEffort: modelCatalog.defaultReasoningEffort },
+  [modelCatalog, selectedModel])
+  const effectiveReasoningEffort = selectedReasoning.efforts.some(item => item.id === reasoningEffort)
+    ? reasoningEffort : selectedReasoning.defaultEffort
   const [dark, setDark] = useState(() => {
     const saved = window.localStorage.getItem('wetflow.theme')
     return saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -460,9 +465,6 @@ export function App() {
       setSelectedModel(current => catalog.models.some(item => item.id === current)
         ? current
         : catalog.defaultModel || catalog.models[0]?.id || '')
-      setReasoningEffort(current => catalog.reasoningEfforts.some(item => item.id === current)
-        ? current
-        : catalog.defaultReasoningEffort)
     }).catch(() => setModelCatalog(BUILTIN_MODELS))
     const source = new EventSource('/api/events')
     source.onopen = () => void load()
@@ -541,7 +543,10 @@ export function App() {
         method: 'POST',
         body: JSON.stringify({
           content: value,
-          ...(modelCatalog.enabled && selectedModel ? { model: selectedModel, reasoningEffort } : {}),
+          ...(modelCatalog.enabled ? {
+            model: selectedModel || modelCatalog.defaultModel,
+            reasoningEffort: effectiveReasoningEffort,
+          } : {}),
         }),
       })
       shouldScrollRef.current = true
@@ -566,7 +571,10 @@ export function App() {
         method: 'PATCH',
         body: JSON.stringify({
           content,
-          ...(modelCatalog.enabled && selectedModel ? { model: selectedModel, reasoningEffort } : {}),
+          ...(modelCatalog.enabled ? {
+            model: selectedModel || modelCatalog.defaultModel,
+            reasoningEffort: effectiveReasoningEffort,
+          } : {}),
         }),
       })
       shouldScrollRef.current = true
@@ -819,9 +827,6 @@ export function App() {
       setSelectedModel(catalog.models.some(item => item.id === settings.model)
         ? settings.model
         : catalog.defaultModel || catalog.models[0]?.id || '')
-      setReasoningEffort(current => catalog.reasoningEfforts.some(item => item.id === current)
-        ? current
-        : catalog.defaultReasoningEffort)
       setSettingsOpen(false)
       setSettingsForm(current => ({ ...current, apiKey: '' }))
     } catch (cause) {
@@ -1025,12 +1030,12 @@ export function App() {
                 <BrainCircuit size={13} />
                 <span className="select-prefix">思考</span>
                 <select
-                  value={reasoningEffort}
+                  value={effectiveReasoningEffort}
                   disabled={busy || !externalModelSelected}
                   onChange={event => setReasoningEffort(event.target.value as ReasoningEffort)}
                   aria-label="设置模型思考强度"
                 >
-                  {modelCatalog.reasoningEfforts.map(effort => (
+                  {selectedReasoning.efforts.map(effort => (
                     <option key={effort.id} value={effort.id}>{effort.label} · {effort.description}</option>
                   ))}
                 </select>

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Further improve compatibility with DeepSeek thinking intensity: expose Off, Low, High and Max, explicitly send the thinking toggle and reasoning effort, and retain the selected effort when continuing tool calls or resending edited messages.
+- Add HTTP transport regression coverage for thinking parameters, model-specific options and malformed selections.
+
 - Add a saved-report `md_compare_feeds` extension with common-window checks, consistent contact counts and explicit model assumptions.
 - Add project-scoped Education tools that reuse exact Evidence citations, check audience/resources and return the complete WEAVE design cycle.
 - Correct WEAVE's interpretation: the classroom timetable belongs to Action; Verify and Echo remain prospective until evidence and later iteration are available.

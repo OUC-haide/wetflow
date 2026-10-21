@@ -10,6 +10,7 @@ import { createWetFlowPlugins, PLUGIN_IDS, type PluginId } from './plugins/index
 import type { AgentEvent } from './core/types.js'
 import type { ReasoningEffort } from './agent/provider.js'
 import { OpenAICompatibleProvider } from './agent/provider.js'
+import { GENERIC_REASONING, isReasoningEffort } from './agent/reasoning.js'
 import { registerResearchRoutes } from './research/routes.js'
 import { IndustrialSettingsManager, IndustrialStore } from './industrial/index.js'
 import type {
@@ -315,8 +316,8 @@ export async function createServer(options: ServerOptions = {}) {
   app.patch<{ Params: { id: string }; Body: { content?: string; model?: string; reasoningEffort?: ReasoningEffort } }>('/api/messages/:id', async (request, reply) => {
     try {
       const reasoningEffort = request.body.reasoningEffort
-      if (reasoningEffort && !['low', 'medium', 'high'].includes(reasoningEffort)) {
-        return reply.code(400).send({ error: 'reasoningEffort 必须是 low、medium 或 high。' })
+      if (reasoningEffort !== undefined && !isReasoningEffort(reasoningEffort)) {
+        return reply.code(400).send({ error: 'reasoningEffort 必须是 off、low、medium、high 或 max。' })
       }
       const catalog = await agent.modelOptions()
       const model = request.body.model?.trim()
@@ -364,21 +365,18 @@ export async function createServer(options: ServerOptions = {}) {
   })
   app.get('/api/models', async () => {
     const catalog = await agent.modelOptions()
+    const reasoning = catalog.models.find(item => item.id === catalog.defaultModel)?.reasoning ?? GENERIC_REASONING
     return {
       ...catalog,
-      reasoningEfforts: [
-        { id: 'low', label: '低', description: '响应更快' },
-        { id: 'medium', label: '中', description: '速度与推理平衡' },
-        { id: 'high', label: '高', description: '更充分地推理' },
-      ],
-      defaultReasoningEffort: 'medium',
+      reasoningEfforts: reasoning.efforts,
+      defaultReasoningEffort: reasoning.defaultEffort,
     }
   })
   app.post<{ Body: { content?: string; model?: string; reasoningEffort?: ReasoningEffort } }>('/api/chat', async (request, reply) => {
     try {
       const reasoningEffort = request.body.reasoningEffort
-      if (reasoningEffort && !['low', 'medium', 'high'].includes(reasoningEffort)) {
-        return reply.code(400).send({ error: 'reasoningEffort 必须是 low、medium 或 high。' })
+      if (reasoningEffort !== undefined && !isReasoningEffort(reasoningEffort)) {
+        return reply.code(400).send({ error: 'reasoningEffort 必须是 off、low、medium、high 或 max。' })
       }
       const catalog = await agent.modelOptions()
       const model = request.body.model?.trim()
