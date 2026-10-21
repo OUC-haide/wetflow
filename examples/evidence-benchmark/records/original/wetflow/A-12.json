@@ -1,0 +1,27 @@
+{
+  "task": "A-12",
+  "arm": "native",
+  "prompt": "Using only the provided files, judge the claim below about RUN-SYN-07.\nClaim: Deleting the regulator doubled xylose consumption.\nAnswer with exactly one label on the first line: Support, Refute, or NEI.\nIf the label is Support or Refute, quote the exact sentence from the provided files on the next line.",
+  "answer": "Refute\nIn the same study, deleting the regulator reduced xylose consumption by half. [证据: paper-excerpt-syn.md#1]\n\n推断/说明：该句出自合成的论文摘录，原文只说“减少一半”，与“翻倍”方向相反；摘录未提及 RUN-SYN-07，也未给出酵母/菌株与该运行的对应关系。",
+  "completed": true,
+  "turn_status": "answered",
+  "requested_model": "deepseek-flash",
+  "effective_model": "deepseek-flash",
+  "limits": {
+    "wall_clock_ms": 120000,
+    "tool_calls": 40
+  },
+  "model_calls": 1,
+  "model_turns": 1,
+  "tool_calls": 0,
+  "tool_trace": [],
+  "tool_activity": [],
+  "tokens": {
+    "input": 6285,
+    "output": 449,
+    "total": 6734
+  },
+  "started_at": "2026-09-24T09:16:01.089Z",
+  "finished_at": "2026-09-24T09:16:11.168Z",
+  "wall_clock_ms": 10079.565661
+}

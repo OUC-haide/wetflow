@@ -1,0 +1,27 @@
+{
+  "task": "A-15",
+  "arm": "native",
+  "prompt": "Using only the provided files, judge the claim below about RUN-SYN-07.\nClaim: Glucose was still present at 24 h in RUN-SYN-07.\nAnswer with exactly one label on the first line: Support, Refute, or NEI.\nIf the label is Support or Refute, quote the exact sentence from the provided files on the next line.",
+  "answer": "Refute\n\"- 24 h: glucose depleted\" [证据: batch-record-RUN-SYN-07.md#1]\n\n推断：该记录在 24 h 处标注葡萄糖已耗尽，因此“24 h 时仍存在葡萄糖”与记录相反。注：这是合成示例批记录（原文注明为 benchmark 用途的合成数据）。",
+  "completed": true,
+  "turn_status": "answered",
+  "requested_model": "deepseek-flash",
+  "effective_model": "deepseek-flash",
+  "limits": {
+    "wall_clock_ms": 120000,
+    "tool_calls": 40
+  },
+  "model_calls": 1,
+  "model_turns": 1,
+  "tool_calls": 0,
+  "tool_trace": [],
+  "tool_activity": [],
+  "tokens": {
+    "input": 6291,
+    "output": 179,
+    "total": 6470
+  },
+  "started_at": "2026-09-24T09:16:11.271Z",
+  "finished_at": "2026-09-24T09:16:20.780Z",
+  "wall_clock_ms": 9510.226346999989
+}

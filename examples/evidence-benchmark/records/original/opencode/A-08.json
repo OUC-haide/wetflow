@@ -1,0 +1,58 @@
+{
+  "task": "A-08",
+  "arm": "opencode",
+  "prompt": "Using only the provided files, judge the claim below about RUN-SYN-07.\nClaim: The seed stage must come before fermentation.\nAnswer with exactly one label on the first line: Support, Refute, or NEI.\nIf the label is Support or Refute, quote the exact sentence from the provided files on the next line.",
+  "answer": "Support\nSeed preparation must be completed before fermentation starts.",
+  "completed": true,
+  "requested_model": "deepseek-flash",
+  "effective_model": "deepseek-flash",
+  "limits": {
+    "wall_clock_ms": 120000,
+    "tool_calls": 40
+  },
+  "tool_calls": 9,
+  "tool_trace": [
+    {
+      "ordinal": 1,
+      "name": "read"
+    },
+    {
+      "ordinal": 2,
+      "name": "read"
+    },
+    {
+      "ordinal": 3,
+      "name": "read"
+    },
+    {
+      "ordinal": 4,
+      "name": "read"
+    },
+    {
+      "ordinal": 5,
+      "name": "read"
+    },
+    {
+      "ordinal": 6,
+      "name": "read"
+    },
+    {
+      "ordinal": 7,
+      "name": "read"
+    },
+    {
+      "ordinal": 8,
+      "name": "read"
+    },
+    {
+      "ordinal": 9,
+      "name": "read"
+    }
+  ],
+  "tokens": {
+    "input": 19208,
+    "output": 557,
+    "total": 19765
+  },
+  "wall_clock_ms": 28095.470024000002
+}

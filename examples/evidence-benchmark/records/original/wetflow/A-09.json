@@ -1,0 +1,27 @@
+{
+  "task": "A-09",
+  "arm": "native",
+  "prompt": "Using only the provided files, judge the claim below about RUN-SYN-07.\nClaim: A reading outside a parameter window must open a deviation.\nAnswer with exactly one label on the first line: Support, Refute, or NEI.\nIf the label is Support or Refute, quote the exact sentence from the provided files on the next line.",
+  "answer": "Support\n\"Out-of-window readings must be recorded as a deviation.\" [证据: sop-fermentation-v1.md#1]",
+  "completed": true,
+  "turn_status": "answered",
+  "requested_model": "deepseek-flash",
+  "effective_model": "deepseek-flash",
+  "limits": {
+    "wall_clock_ms": 120000,
+    "tool_calls": 40
+  },
+  "model_calls": 1,
+  "model_turns": 1,
+  "tool_calls": 0,
+  "tool_trace": [],
+  "tool_activity": [],
+  "tokens": {
+    "input": 6287,
+    "output": 325,
+    "total": 6612
+  },
+  "started_at": "2026-09-24T09:15:51.980Z",
+  "finished_at": "2026-09-24T09:16:00.987Z",
+  "wall_clock_ms": 9010.293236000027
+}

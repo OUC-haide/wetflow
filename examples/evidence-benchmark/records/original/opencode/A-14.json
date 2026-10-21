@@ -1,0 +1,58 @@
+{
+  "task": "A-14",
+  "arm": "opencode",
+  "prompt": "Using only the provided files, judge the claim below about RUN-SYN-07.\nClaim: RUN-SYN-07 reached 42.8 g/L of PMA.\nAnswer with exactly one label on the first line: Support, Refute, or NEI.\nIf the label is Support or Refute, quote the exact sentence from the provided files on the next line.",
+  "answer": "Refute\n72 h: PMA titer reached 21.4 g/L (HPLC, single injection, no replicate recorded)",
+  "completed": true,
+  "requested_model": "deepseek-flash",
+  "effective_model": "deepseek-flash",
+  "limits": {
+    "wall_clock_ms": 120000,
+    "tool_calls": 40
+  },
+  "tool_calls": 9,
+  "tool_trace": [
+    {
+      "ordinal": 1,
+      "name": "read"
+    },
+    {
+      "ordinal": 2,
+      "name": "read"
+    },
+    {
+      "ordinal": 3,
+      "name": "read"
+    },
+    {
+      "ordinal": 4,
+      "name": "read"
+    },
+    {
+      "ordinal": 5,
+      "name": "read"
+    },
+    {
+      "ordinal": 6,
+      "name": "read"
+    },
+    {
+      "ordinal": 7,
+      "name": "read"
+    },
+    {
+      "ordinal": 8,
+      "name": "read"
+    },
+    {
+      "ordinal": 9,
+      "name": "read"
+    }
+  ],
+  "tokens": {
+    "input": 107106,
+    "output": 1635,
+    "total": 108741
+  },
+  "wall_clock_ms": 55187.078698
+}

@@ -1,0 +1,27 @@
+{
+  "task": "A-06",
+  "arm": "native",
+  "prompt": "Using only the provided files, judge the claim below about RUN-SYN-07.\nClaim: The 21.4 g/L value came from a single injection without replicates.\nAnswer with exactly one label on the first line: Support, Refute, or NEI.\nIf the label is Support or Refute, quote the exact sentence from the provided files on the next line.",
+  "answer": "Support\n- 72 h: PMA titer reached 21.4 g/L (HPLC, single injection, no replicate recorded) [证据: batch-record-RUN-SYN-07.md#1]\n\n中文说明：该行记录明确写明 21.4 g/L 为 HPLC 单次进样、未记录重复，因此该断言得到支持（记录值来自资料片段；是否满足统计要求属推断，此处不作结论）。",
+  "completed": true,
+  "turn_status": "answered",
+  "requested_model": "deepseek-flash",
+  "effective_model": "deepseek-flash",
+  "limits": {
+    "wall_clock_ms": 120000,
+    "tool_calls": 40
+  },
+  "model_calls": 1,
+  "model_turns": 1,
+  "tool_calls": 0,
+  "tool_trace": [],
+  "tool_activity": [],
+  "tokens": {
+    "input": 6292,
+    "output": 173,
+    "total": 6465
+  },
+  "started_at": "2026-09-24T09:15:44.662Z",
+  "finished_at": "2026-09-24T09:15:51.032Z",
+  "wall_clock_ms": 6366.709628000011
+}

@@ -1,0 +1,27 @@
+{
+  "task": "A-14",
+  "arm": "native",
+  "prompt": "Using only the provided files, judge the claim below about RUN-SYN-07.\nClaim: RUN-SYN-07 reached 42.8 g/L of PMA.\nAnswer with exactly one label on the first line: Support, Refute, or NEI.\nIf the label is Support or Refute, quote the exact sentence from the provided files on the next line.",
+  "answer": "Refute\n\"72 h: PMA titer reached 21.4 g/L (HPLC, single injection, no replicate recorded)\" [证据: batch-record-RUN-SYN-07.md#1]\n\n记录值：该批次记录中 RUN-SYN-07 的 PMA 滴度为 21.4 g/L，与声称的 42.8 g/L 不符，故判 Refute（推断：基于唯一给出的该批次滴度数值）。注：该文件自身注明此滴度为合成示例数据（\"the titer above is synthetic example data for benchmark use only\"），且为单次进样、无重复。文档中出现的 56.75 g/L 属另一研究（木糖为唯一碳源），与 RUN-SYN-07 无关，不能用于支持或反驳本claim。",
+  "completed": true,
+  "turn_status": "answered",
+  "requested_model": "deepseek-flash",
+  "effective_model": "deepseek-flash",
+  "limits": {
+    "wall_clock_ms": 120000,
+    "tool_calls": 40
+  },
+  "model_calls": 1,
+  "model_turns": 1,
+  "tool_calls": 0,
+  "tool_trace": [],
+  "tool_activity": [],
+  "tokens": {
+    "input": 6292,
+    "output": 391,
+    "total": 6683
+  },
+  "started_at": "2026-09-24T09:16:09.103Z",
+  "finished_at": "2026-09-24T09:16:17.748Z",
+  "wall_clock_ms": 8647.883751999994
+}

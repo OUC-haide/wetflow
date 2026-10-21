@@ -1,0 +1,500 @@
+{
+  "wetflow": {
+    "correct": 28,
+    "total": 30,
+    "accuracyPercent": 93.3,
+    "executionFailuresOrMissingLabels": 0,
+    "classificationErrors": 2,
+    "items": [
+      {
+        "id": "A-01",
+        "expected": "SUPPORT",
+        "returned": "REFUTE",
+        "completed": true,
+        "correct": false,
+        "record": "records/original/wetflow/A-01.json"
+      },
+      {
+        "id": "A-02",
+        "expected": "SUPPORT",
+        "returned": "SUPPORT",
+        "completed": true,
+        "correct": true,
+        "record": "records/clarified/wetflow/A-02.json"
+      },
+      {
+        "id": "A-03",
+        "expected": "SUPPORT",
+        "returned": "SUPPORT",
+        "completed": true,
+        "correct": true,
+        "record": "records/clarified/wetflow/A-03.json"
+      },
+      {
+        "id": "A-04",
+        "expected": "SUPPORT",
+        "returned": "SUPPORT",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/wetflow/A-04.json"
+      },
+      {
+        "id": "A-05",
+        "expected": "SUPPORT",
+        "returned": "SUPPORT",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/wetflow/A-05.json"
+      },
+      {
+        "id": "A-06",
+        "expected": "SUPPORT",
+        "returned": "SUPPORT",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/wetflow/A-06.json"
+      },
+      {
+        "id": "A-07",
+        "expected": "SUPPORT",
+        "returned": "SUPPORT",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/wetflow/A-07.json"
+      },
+      {
+        "id": "A-08",
+        "expected": "SUPPORT",
+        "returned": "SUPPORT",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/wetflow/A-08.json"
+      },
+      {
+        "id": "A-09",
+        "expected": "SUPPORT",
+        "returned": "SUPPORT",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/wetflow/A-09.json"
+      },
+      {
+        "id": "A-10",
+        "expected": "SUPPORT",
+        "returned": "SUPPORT",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/wetflow/A-10.json"
+      },
+      {
+        "id": "A-11",
+        "expected": "REFUTE",
+        "returned": "REFUTE",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/wetflow/A-11.json"
+      },
+      {
+        "id": "A-12",
+        "expected": "REFUTE",
+        "returned": "REFUTE",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/wetflow/A-12.json"
+      },
+      {
+        "id": "A-13",
+        "expected": "REFUTE",
+        "returned": "REFUTE",
+        "completed": true,
+        "correct": true,
+        "record": "records/clarified/wetflow/A-13.json"
+      },
+      {
+        "id": "A-14",
+        "expected": "REFUTE",
+        "returned": "REFUTE",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/wetflow/A-14.json"
+      },
+      {
+        "id": "A-15",
+        "expected": "REFUTE",
+        "returned": "REFUTE",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/wetflow/A-15.json"
+      },
+      {
+        "id": "A-16",
+        "expected": "REFUTE",
+        "returned": "REFUTE",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/wetflow/A-16.json"
+      },
+      {
+        "id": "A-17",
+        "expected": "REFUTE",
+        "returned": "REFUTE",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/wetflow/A-17.json"
+      },
+      {
+        "id": "A-18",
+        "expected": "REFUTE",
+        "returned": "REFUTE",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/wetflow/A-18.json"
+      },
+      {
+        "id": "A-19",
+        "expected": "REFUTE",
+        "returned": "REFUTE",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/wetflow/A-19.json"
+      },
+      {
+        "id": "A-20",
+        "expected": "REFUTE",
+        "returned": "REFUTE",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/wetflow/A-20.json"
+      },
+      {
+        "id": "A-21",
+        "expected": "NEI",
+        "returned": "NEI",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/wetflow/A-21.json"
+      },
+      {
+        "id": "A-22",
+        "expected": "NEI",
+        "returned": "NEI",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/wetflow/A-22.json"
+      },
+      {
+        "id": "A-23",
+        "expected": "NEI",
+        "returned": "NEI",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/wetflow/A-23.json"
+      },
+      {
+        "id": "A-24",
+        "expected": "NEI",
+        "returned": "REFUTE",
+        "completed": true,
+        "correct": false,
+        "record": "records/original/wetflow/A-24.json"
+      },
+      {
+        "id": "A-25",
+        "expected": "NEI",
+        "returned": "NEI",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/wetflow/A-25.json"
+      },
+      {
+        "id": "A-26",
+        "expected": "NEI",
+        "returned": "NEI",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/wetflow/A-26.json"
+      },
+      {
+        "id": "A-27",
+        "expected": "NEI",
+        "returned": "NEI",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/wetflow/A-27.json"
+      },
+      {
+        "id": "A-28",
+        "expected": "NEI",
+        "returned": "NEI",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/wetflow/A-28.json"
+      },
+      {
+        "id": "A-29",
+        "expected": "NEI",
+        "returned": "NEI",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/wetflow/A-29.json"
+      },
+      {
+        "id": "A-30",
+        "expected": "NEI",
+        "returned": "NEI",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/wetflow/A-30.json"
+      }
+    ]
+  },
+  "opencode": {
+    "correct": 21,
+    "total": 30,
+    "accuracyPercent": 70.0,
+    "executionFailuresOrMissingLabels": 6,
+    "classificationErrors": 3,
+    "items": [
+      {
+        "id": "A-01",
+        "expected": "SUPPORT",
+        "returned": "REFUTE",
+        "completed": true,
+        "correct": false,
+        "record": "records/original/opencode/A-01.json"
+      },
+      {
+        "id": "A-02",
+        "expected": "SUPPORT",
+        "returned": "SUPPORT",
+        "completed": true,
+        "correct": true,
+        "record": "records/clarified/opencode/A-02.json"
+      },
+      {
+        "id": "A-03",
+        "expected": "SUPPORT",
+        "returned": "SUPPORT",
+        "completed": true,
+        "correct": true,
+        "record": "records/clarified/opencode/A-03.json"
+      },
+      {
+        "id": "A-04",
+        "expected": "SUPPORT",
+        "returned": null,
+        "completed": false,
+        "correct": false,
+        "record": "records/original/opencode/A-04.json"
+      },
+      {
+        "id": "A-05",
+        "expected": "SUPPORT",
+        "returned": "SUPPORT",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/opencode/A-05.json"
+      },
+      {
+        "id": "A-06",
+        "expected": "SUPPORT",
+        "returned": null,
+        "completed": false,
+        "correct": false,
+        "record": "records/original/opencode/A-06.json"
+      },
+      {
+        "id": "A-07",
+        "expected": "SUPPORT",
+        "returned": "SUPPORT",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/opencode/A-07.json"
+      },
+      {
+        "id": "A-08",
+        "expected": "SUPPORT",
+        "returned": "SUPPORT",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/opencode/A-08.json"
+      },
+      {
+        "id": "A-09",
+        "expected": "SUPPORT",
+        "returned": "SUPPORT",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/opencode/A-09.json"
+      },
+      {
+        "id": "A-10",
+        "expected": "SUPPORT",
+        "returned": null,
+        "completed": false,
+        "correct": false,
+        "record": "records/original/opencode/A-10.json"
+      },
+      {
+        "id": "A-11",
+        "expected": "REFUTE",
+        "returned": "REFUTE",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/opencode/A-11.json"
+      },
+      {
+        "id": "A-12",
+        "expected": "REFUTE",
+        "returned": "REFUTE",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/opencode/A-12.json"
+      },
+      {
+        "id": "A-13",
+        "expected": "REFUTE",
+        "returned": "REFUTE",
+        "completed": true,
+        "correct": true,
+        "record": "records/clarified/opencode/A-13.json"
+      },
+      {
+        "id": "A-14",
+        "expected": "REFUTE",
+        "returned": "REFUTE",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/opencode/A-14.json"
+      },
+      {
+        "id": "A-15",
+        "expected": "REFUTE",
+        "returned": null,
+        "completed": false,
+        "correct": false,
+        "record": "records/original/opencode/A-15.json"
+      },
+      {
+        "id": "A-16",
+        "expected": "REFUTE",
+        "returned": "REFUTE",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/opencode/A-16.json"
+      },
+      {
+        "id": "A-17",
+        "expected": "REFUTE",
+        "returned": "REFUTE",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/opencode/A-17.json"
+      },
+      {
+        "id": "A-18",
+        "expected": "REFUTE",
+        "returned": "REFUTE",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/opencode/A-18.json"
+      },
+      {
+        "id": "A-19",
+        "expected": "REFUTE",
+        "returned": "REFUTE",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/opencode/A-19.json"
+      },
+      {
+        "id": "A-20",
+        "expected": "REFUTE",
+        "returned": "REFUTE",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/opencode/A-20.json"
+      },
+      {
+        "id": "A-21",
+        "expected": "NEI",
+        "returned": "NEI",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/opencode/A-21.json"
+      },
+      {
+        "id": "A-22",
+        "expected": "NEI",
+        "returned": "NEI",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/opencode/A-22.json"
+      },
+      {
+        "id": "A-23",
+        "expected": "NEI",
+        "returned": "NEI",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/opencode/A-23.json"
+      },
+      {
+        "id": "A-24",
+        "expected": "NEI",
+        "returned": "REFUTE",
+        "completed": true,
+        "correct": false,
+        "record": "records/original/opencode/A-24.json"
+      },
+      {
+        "id": "A-25",
+        "expected": "NEI",
+        "returned": null,
+        "completed": false,
+        "correct": false,
+        "record": "records/original/opencode/A-25.json"
+      },
+      {
+        "id": "A-26",
+        "expected": "NEI",
+        "returned": "NEI",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/opencode/A-26.json"
+      },
+      {
+        "id": "A-27",
+        "expected": "NEI",
+        "returned": "REFUTE",
+        "completed": true,
+        "correct": false,
+        "record": "records/original/opencode/A-27.json"
+      },
+      {
+        "id": "A-28",
+        "expected": "NEI",
+        "returned": null,
+        "completed": false,
+        "correct": false,
+        "record": "records/original/opencode/A-28.json"
+      },
+      {
+        "id": "A-29",
+        "expected": "NEI",
+        "returned": "NEI",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/opencode/A-29.json"
+      },
+      {
+        "id": "A-30",
+        "expected": "NEI",
+        "returned": "NEI",
+        "completed": true,
+        "correct": true,
+        "record": "records/original/opencode/A-30.json"
+      }
+    ]
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "task": "A-20",
+  "arm": "native",
+  "prompt": "Using only the provided files, judge the claim below about RUN-SYN-07.\nClaim: The 21.4 g/L value came from three biological replicates.\nAnswer with exactly one label on the first line: Support, Refute, or NEI.\nIf the label is Support or Refute, quote the exact sentence from the provided files on the next line.",
+  "answer": "Refute\n\"- 72 h: PMA titer reached 21.4 g/L (HPLC, single injection, no replicate recorded)\" [证据: batch-record-RUN-SYN-07.md#1]\n\n推断：记录明确写的是单次进样、未记录重复，因此“三个生物学重复”与证据不符。",
+  "completed": true,
+  "turn_status": "answered",
+  "requested_model": "deepseek-flash",
+  "effective_model": "deepseek-flash",
+  "limits": {
+    "wall_clock_ms": 120000,
+    "tool_calls": 40
+  },
+  "model_calls": 1,
+  "model_turns": 1,
+  "tool_calls": 0,
+  "tool_trace": [],
+  "tool_activity": [],
+  "tokens": {
+    "input": 6290,
+    "output": 270,
+    "total": 6560
+  },
+  "started_at": "2026-09-24T09:16:29.881Z",
+  "finished_at": "2026-09-24T09:17:47.922Z",
+  "wall_clock_ms": 10901.694312999985
+}

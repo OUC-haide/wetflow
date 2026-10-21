@@ -1,16 +1,10 @@
 # WetFlow
 
-面向湿实验的工作流 Agent，集成人工审批、实验数据记录、公开文献检索与生物过程建模。
+WetFlow is a Cordis-based research workbench for project documents, scientific tools, measurement records and researcher-approved workflow transitions. It was developed for the team's PMA–dopamine adhesive project and also supports Education planning through an optional extension.
 
-- **搜索建库**：研究档案、Europe PMC / arXiv / GEO 搜索、来源分层、带原文证据的实验数据、运行级隔离和只读 SQL 查询。
-- **Agent 工具**：根据研究目标搜索、分页阅读来源、整理数值记录，并导出到建模工作区。
-- **生物过程建模**：Monod 批次模拟、生长曲线拟合、结果下载、预测登记与实验关联。
-- **研究扩展**：通过独立插件比较已保存的 MD 接触报告；Education 工具复用项目资料和来源引用，并将完整 WEAVE 设计循环用于小学 DNA 活动规划。
-- **回答与文献阅读**：支持 Markdown 表格、列表与引用链接；按名称指定文档时优先检索该文档；研究档案和来源全文可折叠阅读。
+## Start
 
-## 运行
-
-需要 Node.js ≥22.19 和 Python 3。
+Use Node.js 22.19 or newer, npm and Python 3 available as `python3` (or configure `PYTHON_EXECUTABLE`). From this directory:
 
 ```sh
 npm ci
@@ -18,38 +12,45 @@ npm run build
 npm start
 ```
 
-打开 http://127.0.0.1:4310 。在「搜索建库」保存研究档案并启用研究模式，可手动检索或在 Agent 对话中要求整理公开数据。对话模型在界面中配置，本地 SQL 和数值建模不需要模型 API。
+Open http://127.0.0.1:4310. Configure an OpenAI-compatible model in the workbench, or use the built-in rules without a model API. Model API calls use your configured provider. Automatic sharing of retrieved document text is off by default and can be enabled in model settings. Local settings, databases and generated outputs are excluded from version control.
 
-Europe PMC 支持可获取的开放全文；arXiv 当前读取摘要，GEO 当前提供数据集元数据。元数据和摘要不会被当成可直接导入的实验数值。拟合导出要求有来源支持的 biomass/g/L 时间序列。
+## Tools and cases
 
-自动检索到的文献片段发送给云端模型默认关闭；需要时在模型设置中明确开启，或为 CLI 设置 `WETFLOW_ALLOW_DOCUMENT_EXCERPTS=true`。研究来源显示文章自身的许可信息，缺失时标为未知；拟合导出只包含时间和 biomass 数值，并附来源引用信息。
+The web host loads four core plugins: Evidence, Research, Modeling and Experiment. They provide 35 tools, including workflow tools. The plugin workspace also lists two optional extensions:
 
-## 检查
+| Extension | Operation | Use in the workbench |
+| --- | --- | --- |
+| Feed comparison | `md_compare_feeds` validates and compares saved MD contact reports. It does not start molecular simulations. | Load the extension, then try the saved feed comparison or ask the Agent to compare feed 1.00 and 1.25. |
+| Education | `education_search_cases` and `education_make_brief` reuse project sources, exact citations and the team's WEAVE design cycle. | Load Education while Evidence is available. Import the example sources into the current project, then search DNA cases or request a 30-minute primary-school brief. |
+
+Unloading an extension removes its tools. Education tools also become unavailable when Evidence is unloaded and recover when its service returns. Imported sources remain in their project. The bundled sources and saved report are examples; replace them through the plugin configuration when developing another application.
+
+Project retrieval is scoped to the active run. Measurement writes through Agent tools and HTTP share declared-unit validation; a missing unit uses the parameter's declared unit, while an explicit mismatch is rejected. A correctly dimensioned out-of-range observation remains stored and is flagged as a deviation. Agent writes require explicit user-supplied recording intent, parameter and value. Workflow-stage advancement has a separate approval step.
+
+The CLI (`npm run console`) uses the same Agent implementation with Evidence loaded; its default tool set is smaller than the web host's. Other hosts can register the exported plugins explicitly.
+
+## Thinking and context settings
+
+DeepSeek exposes Off, Low, High and Max thinking intensity. A separate display switch reveals provider-returned reasoning in collapsible sections after a turn completes. The display preference does not change thinking intensity. Saved reasoning is kept apart from the final answer and is not automatically appended to future conversation context. Old reasoning that was never recorded is not reconstructed.
+
+The context panel lets users save a budget from 1,024 to 1,000,000 tokens, with a 128,000-token default. Settings persist in `.wetflow/context-settings.json`. Saved UI settings take precedence over `WETFLOW_CONTEXT_TOKEN_BUDGET`; an explicit server option takes precedence at startup. This is an estimated base-context budget, subject to provider capacity. Tool-call continuations add messages of their own. Original older messages remain available when they fit; extracted memory is used when compaction is needed.
+
+## Reproduce the examples
+
+These commands run without model API calls:
 
 ```sh
-npm run check
-```
-
-包含 TypeScript 检查、生产构建及测试。2026-10-20 的生产构建通过，回归验证通过 197 项测试（25 个测试文件），其中包括插件生命周期与两个科学扩展的测试；另有 1 项审计链测试未在本轮执行。三个科学扩展离线演示也已通过。更新内容见 [CHANGELOG.md](CHANGELOG.md)。
-
-## Plugin lifecycle
-
-Evidence, Research, Modeling and Experiment are independently loadable Cordis plugins. Open **Plugin lifecycle** in the workbench to inspect the live registry, load/unload a module and call a modeling tool before and after removal. Run `npm run demo:plugins` to export a reproducible registry comparison. See [plugin lifecycle and test instructions](docs/plugin-lifecycle.md).
-
-## Scientific extensions
-
-MD 比较与 Education 插件使用相同的工具接口，分别封装报告校验和教育规划要求，复用已有项目与服务。查看 [扩展设计与复现说明](docs/scientific-extensions.md)。
-
-```sh
+npm run demo:plugins
 npm run demo:feeds
 npm run demo:design
 npm run demo:education
+npm run demo:benchmark
 ```
 
-以上演示默认不调用模型 API，使用仓库自带的输入并将结果写入 `.wetflow/demos/`。Education 当前示例仅包含一项 30 分钟小学 DNA 活动设计；WEAVE 表示完整设计循环，核验和改进仍需后续课堂证据。需要重新生成 Agent 回答时，按说明显式使用 `--live` 并配置模型凭据。
+The first four invoke actual tools and services using included fixtures. The benchmark command re-scores retained historical outputs: WetFlow 28/30 and OpenCode 21/30 on a synthetic development set, assembled from 27 original records and 3 clarified reruns per system. It does not rerun models or evaluate the current release. See [scientific extensions](docs/scientific-extensions.md), [plugin lifecycle](docs/plugin-lifecycle.md) and the [benchmark inputs and records](examples/evidence-benchmark/README.md) for their scope.
 
-### Context budget
+`npm run build` performs TypeScript checking and creates the web and Node bundles. `npm test` runs the repository's regression suite.
 
-The workbench's **模型上下文** panel includes an editable token budget and Save button. The default is 128,000, with an accepted range of 1,024–1,000,000 tokens. Changes apply to subsequent requests and survive restart in `.wetflow/context-settings.json`. A saved UI setting takes precedence over `WETFLOW_CONTEXT_TOKEN_BUDGET`; an explicit server `contextTokenBudget` option takes precedence over both on startup.
+## License
 
-This is WetFlow's estimated base-context assembly budget, not a guarantee of the selected model's capacity or the complete request's exact token count. System instructions and tool definitions also consume context; tool-call continuations add their own messages. Choose a value supported by your provider. Existing document-sharing preferences remain in effect. Older original messages are retained whenever they fit; extracted memory is used when the budget requires compaction.
+Team-authored code is licensed under the [Apache License, Version 2.0](LICENSE). Third-party libraries and attributed education materials retain their own terms and credits. The previous noncommercial license is superseded for this release.

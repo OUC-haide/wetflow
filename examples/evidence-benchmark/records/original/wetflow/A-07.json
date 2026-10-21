@@ -1,0 +1,27 @@
+{
+  "task": "A-07",
+  "arm": "native",
+  "prompt": "Using only the provided files, judge the claim below about RUN-SYN-07.\nClaim: Glucose was depleted by 24 h in RUN-SYN-07.\nAnswer with exactly one label on the first line: Support, Refute, or NEI.\nIf the label is Support or Refute, quote the exact sentence from the provided files on the next line.",
+  "answer": "Support\n\"- 24 h: glucose depleted\" [证据: batch-record-RUN-SYN-07.md#1]\n\n该句出自批次记录 RUN-SYN-07 的运行时间线，直接陈述 24 h 时葡萄糖已耗尽，故支持该主张。注意：这是合成示例数据文件中的记录值。",
+  "completed": true,
+  "turn_status": "answered",
+  "requested_model": "deepseek-flash",
+  "effective_model": "deepseek-flash",
+  "limits": {
+    "wall_clock_ms": 120000,
+    "tool_calls": 40
+  },
+  "model_calls": 1,
+  "model_turns": 1,
+  "tool_calls": 0,
+  "tool_trace": [],
+  "tool_activity": [],
+  "tokens": {
+    "input": 6290,
+    "output": 130,
+    "total": 6420
+  },
+  "started_at": "2026-09-24T09:15:48.650Z",
+  "finished_at": "2026-09-24T09:15:57.256Z",
+  "wall_clock_ms": 8602.555821999995
+}

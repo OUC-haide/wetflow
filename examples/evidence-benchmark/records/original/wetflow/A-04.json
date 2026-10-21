@@ -1,0 +1,27 @@
+{
+  "task": "A-04",
+  "arm": "native",
+  "prompt": "Using only the provided files, judge the claim below about RUN-SYN-07.\nClaim: The study measured a 50 % drop in xylose consumption after deletion.\nAnswer with exactly one label on the first line: Support, Refute, or NEI.\nIf the label is Support or Refute, quote the exact sentence from the provided files on the next line.",
+  "answer": "Support\n\"In the same study, deleting the regulator reduced xylose consumption by half.\" [证据: paper-excerpt-syn.md#1]\n\n说明：该摘录出自 paper-excerpt-syn.md 片段1，属合成示例资料；“by half”即减半。需注意该句未指明运行编号，RUN-SYN-07 批次记录中也没有木糖消耗降幅数据——因此“50 % 降幅”这一事实来自文献摘录，而非 RUN-SYN-07 的批次记录。",
+  "completed": true,
+  "turn_status": "answered",
+  "requested_model": "deepseek-flash",
+  "effective_model": "deepseek-flash",
+  "limits": {
+    "wall_clock_ms": 120000,
+    "tool_calls": 40
+  },
+  "model_calls": 1,
+  "model_turns": 1,
+  "tool_calls": 0,
+  "tool_trace": [],
+  "tool_activity": [],
+  "tokens": {
+    "input": 6291,
+    "output": 1035,
+    "total": 7326
+  },
+  "started_at": "2026-09-24T09:15:34.868Z",
+  "finished_at": "2026-09-24T09:15:48.548Z",
+  "wall_clock_ms": 13688.288789999991
+}

@@ -1,0 +1,183 @@
+{
+  "task": "A-28",
+  "arm": "opencode",
+  "prompt": "Using only the provided files, judge the claim below about RUN-SYN-07.\nClaim: The seed culture reached an OD600 of 6 before inoculation.\nAnswer with exactly one label on the first line: Support, Refute, or NEI.\nIf the label is Support or Refute, quote the exact sentence from the provided files on the next line.",
+  "answer": "",
+  "completed": false,
+  "error": "OpenCode 40-tool budget exhausted before execution",
+  "requested_model": "deepseek-flash",
+  "effective_model": "deepseek-flash",
+  "limits": {
+    "wall_clock_ms": 120000,
+    "tool_calls": 40
+  },
+  "tool_calls": 40,
+  "tool_trace": [
+    {
+      "ordinal": 1,
+      "name": "read"
+    },
+    {
+      "ordinal": 2,
+      "name": "read"
+    },
+    {
+      "ordinal": 3,
+      "name": "read"
+    },
+    {
+      "ordinal": 4,
+      "name": "read"
+    },
+    {
+      "ordinal": 5,
+      "name": "read"
+    },
+    {
+      "ordinal": 6,
+      "name": "read"
+    },
+    {
+      "ordinal": 7,
+      "name": "read"
+    },
+    {
+      "ordinal": 8,
+      "name": "read"
+    },
+    {
+      "ordinal": 9,
+      "name": "read"
+    },
+    {
+      "ordinal": 10,
+      "name": "read"
+    },
+    {
+      "ordinal": 11,
+      "name": "read"
+    },
+    {
+      "ordinal": 12,
+      "name": "read"
+    },
+    {
+      "ordinal": 13,
+      "name": "read"
+    },
+    {
+      "ordinal": 14,
+      "name": "read"
+    },
+    {
+      "ordinal": 15,
+      "name": "read"
+    },
+    {
+      "ordinal": 16,
+      "name": "read"
+    },
+    {
+      "ordinal": 17,
+      "name": "read"
+    },
+    {
+      "ordinal": 18,
+      "name": "grep"
+    },
+    {
+      "ordinal": 19,
+      "name": "read"
+    },
+    {
+      "ordinal": 20,
+      "name": "read"
+    },
+    {
+      "ordinal": 21,
+      "name": "read"
+    },
+    {
+      "ordinal": 22,
+      "name": "read"
+    },
+    {
+      "ordinal": 23,
+      "name": "read"
+    },
+    {
+      "ordinal": 24,
+      "name": "grep"
+    },
+    {
+      "ordinal": 25,
+      "name": "read"
+    },
+    {
+      "ordinal": 26,
+      "name": "read"
+    },
+    {
+      "ordinal": 27,
+      "name": "read"
+    },
+    {
+      "ordinal": 28,
+      "name": "read"
+    },
+    {
+      "ordinal": 29,
+      "name": "read"
+    },
+    {
+      "ordinal": 30,
+      "name": "read"
+    },
+    {
+      "ordinal": 31,
+      "name": "read"
+    },
+    {
+      "ordinal": 32,
+      "name": "read"
+    },
+    {
+      "ordinal": 33,
+      "name": "read"
+    },
+    {
+      "ordinal": 34,
+      "name": "read"
+    },
+    {
+      "ordinal": 35,
+      "name": "read"
+    },
+    {
+      "ordinal": 36,
+      "name": "read"
+    },
+    {
+      "ordinal": 37,
+      "name": "grep"
+    },
+    {
+      "ordinal": 38,
+      "name": "read"
+    },
+    {
+      "ordinal": 39,
+      "name": "read"
+    },
+    {
+      "ordinal": 40,
+      "name": "read"
+    }
+  ],
+  "tokens": {
+    "input": 172983,
+    "output": 2975,
+    "total": 175958
+  },
+  "wall_clock_ms": 66097.150538
+}
