@@ -1,5 +1,7 @@
 import type { ModelContextFrame } from './context.js'
 import type { ToolRegistry } from './tools.js'
+import { isDeepSeekModel, reasoningConfig, reasoningParameters, type ReasoningConfig, type ReasoningEffort } from './reasoning.js'
+export type { ReasoningEffort } from './reasoning.js'
 
 /**
  * A single tool call requested by the model.
@@ -28,7 +30,6 @@ export interface ModelTurn {
   reasoningContent?: string
 }
 
-export type ReasoningEffort = 'low' | 'medium' | 'high'
 export type ToolChoiceMode = 'auto' | 'none'
 
 export interface ModelRequestOptions {
@@ -61,6 +62,7 @@ export interface ModelSession {
 export interface ModelOption {
   id: string
   label: string
+  reasoning?: ReasoningConfig
 }
 
 export interface ModelProvider {
@@ -154,7 +156,7 @@ export class OpenAICompatibleProvider implements ModelProvider {
 
   async models(): Promise<ModelOption[]> {
     const configured = [this.config.model, ...(this.config.models ?? [])].filter(Boolean)
-    return [...new Set(configured)].map(id => ({ id, label: id }))
+    return [...new Set(configured)].map(id => ({ id, label: id, reasoning: reasoningConfig(id) }))
   }
 
   async complete(
@@ -206,8 +208,8 @@ export class OpenAICompatibleProvider implements ModelProvider {
       },
       body: JSON.stringify({
         model,
-        ...(options.reasoningEffort ? { reasoning_effort: options.reasoningEffort } : {}),
-        temperature: 0.2,
+        ...reasoningParameters(model, options.reasoningEffort),
+        ...(!isDeepSeekModel(model) || options.reasoningEffort === 'off' ? { temperature: 0.2 } : {}),
         messages,
         tools: toolSchemaSources(tools).map(tool => ({
           type: 'function',

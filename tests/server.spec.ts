@@ -113,7 +113,8 @@ describe('WetFlow HTTP surface', () => {
       })
       expect(renamed.statusCode).toBe(200)
       expect(renamed.json().title).toBe('发酵条件讨论')
-      expect((await app.inject({ method: 'GET', url: '/api/conversations' })).json().items[0].title).toBe('发酵条件讨论')
+      // Renaming must persist on the requested conversation; timestamps may tie within one millisecond.
+      expect((await app.inject({ method: 'GET', url: '/api/conversations' })).json().items.find((item: { id: string }) => item.id === createdId).title).toBe('发酵条件讨论')
 
       const emptyTitle = await app.inject({
         method: 'PATCH', url: `/api/conversations/${createdId}`, payload: { title: '   ' },

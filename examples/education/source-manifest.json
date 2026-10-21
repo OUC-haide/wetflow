@@ -1,0 +1,100 @@
+{
+  "retrievedAt": "2026-10-19T09:40:16.401592+00:00",
+  "teamRepository": "https://gitlab.igem.org/2026/ouc-haide",
+  "repositoryEducationContent": "The current education route lists interactive resources. Narrative principles and refinement history also use the supplied team PDF. Uploaded proposal PDFs remain proposals.",
+  "sources": [
+    {
+      "document": "OUC-EDU-WEAVE.md",
+      "characters": 2927,
+      "provenance": [
+        "Source: supplied edu-wiki说明.pdf, pages 2–3. Team-authored planning/Wiki material. The official education route is https://2026.igem.wiki/ouc-haide/education.",
+        "",
+        "Overview",
+        "Our Science Outreach Campaign, “Decoding Genes, Empowering via",
+        "Synbio,” connected interdisciplinary graduates and diverse cohorts by introducing the"
+      ]
+    },
+    {
+      "document": "OUC-EDU-REFINEMENT.md",
+      "characters": 1902,
+      "provenance": [
+        "Source: supplied edu-wiki说明.pdf, page 12. This describes the team's activity design history; it is separate from any new guidance produced in this demonstration.",
+        "",
+        "Card 01",
+        "In our initial design, players would distinguish β-16 from β-17 by comparing their reporter signals.",
+        "They would tested prepared simulated samples, measure their fluorescence intensity, and"
+      ]
+    },
+    {
+      "document": "OUC-EDU-JOINT-IDEAS.md",
+      "characters": 1036,
+      "provenance": [
+        "Source: https://static.igem.wiki/teams/6147/wiki/education/6-3-1-milestone-01-ouc-haide-initial-ideas.pdf",
+        "Location: joint activity design suggestions, route-puzzle and green-manufacturing workshop sections.",
+        "Status: a design proposal. Suggestions and intended evaluation outputs are not completed event results.",
+        "",
+        "The proposal connects the team's straw-to-sugars-to-fermentation-to-PMA-to-material route with the partner's plant-to-product route. A classroom card puzzle asks learners to arrange each route, compare the steps, then choose how to use a new plant waste. Other proposed formats include a stakeholder hearing, a microbe job-matching game and a four-station escape challenge. The proposal recommends beginning with raw material, transformation and product rather than a long explanation of gene regulation. Suggested evaluation outputs include route explanations, decision reasons, questions, hints used and feedback for later revisions. It also outlines a 60-minute joint workshop."
+      ]
+    },
+    {
+      "document": "OUC-EDU-ACTIVITIES.md",
+      "characters": 863,
+      "provenance": [
+        "Source: https://gitlab.igem.org/2026/ouc-haide/-/blob/main/src/contents/activityCatalog.ts",
+        "Location: ACTIVITIES entries, retrieved from the main branch on 19 October 2026.",
+        "Status: descriptions of the implemented interactive resources; no educational impact measurements are attached.",
+        "",
+        "DNA builder: assemble nucleotides, inspect complementary base pairs, and explore DNA in two and three dimensions. Repository path: activities/dna/index.html."
+      ]
+    },
+    {
+      "document": "HEIDELBERG-2025-EDUCATION.md",
+      "characters": 819,
+      "provenance": [
+        "Source: https://2025.igem.wiki/heidelberg/education",
+        "Location: Interactive Learning Platform.",
+        "Attribution: Heidelberg iGEM 2025; original page CC BY 4.0. This is a paraphrased source summary.",
+        "",
+        "The team turned summer-school materials into an open learning platform combining illustrated protocols, calculators and module quizzes. They sought feedback from summer-school and school-workshop participants and subsequently added instructional laboratory videos. The platform serves advanced school students and undergraduates, both at home and alongside lab classes. For a classroom adaptation, short explanations, a worked example and an immediate quiz can accompany one selected task. This adaptation is our suggestion; the original report concerns Heidelberg's platform."
+      ]
+    },
+    {
+      "document": "BUCT-2025-EDUCATION.md",
+      "characters": 816,
+      "provenance": [
+        "Source: https://2025.igem.wiki/buct/education",
+        "Location: Equ-Globalizing — activities for children with special educational needs.",
+        "Attribution: BUCT iGEM 2025; original page CC BY 4.0. This is a paraphrased source summary.",
+        "",
+        "BUCT describes a two-day activity moving from illustrated explanations and drawings to colored-clay models of cells or engineered bacteria. Facilitators supported children individually and helped them translate drawings into models. The team collected teacher reflections and participant work as feedback. A shorter workshop could retain the drawing-to-model sequence, offer more than one way to respond, and ask facilitators to record where support was needed. Those changes are new planning suggestions, rather than outcomes reported by BUCT."
+      ]
+    }
+  ],
+  "uploadedTeamFiles": [
+    {
+      "name": "initial-ideas.pdf",
+      "bytes": 469103
+    },
+    {
+      "name": "lab-based-biosensors.pdf",
+      "bytes": 472767
+    },
+    {
+      "name": "safety-centered-mystery.pdf",
+      "bytes": 533642
+    }
+  ],
+  "externalSources": [
+    {
+      "team": "Heidelberg",
+      "year": 2025,
+      "url": "https://2025.igem.wiki/heidelberg/education"
+    },
+    {
+      "team": "BUCT",
+      "year": 2025,
+      "url": "https://2025.igem.wiki/buct/education"
+    }
+  ],
+  "curation": "English experience cards are source summaries prepared for this demonstration. The plugin searches these cards; it does not automatically read arbitrary websites."
+}

@@ -3,7 +3,7 @@ import {
   Activity, ArrowDown, ArrowUp, Bot, BrainCircuit, Check, ChevronDown, ChevronRight,
   Circle, Clock3, Database, FileText, FlaskConical, FolderKanban, GitBranch, History, KeyRound, LoaderCircle, Menu, MessageSquare, Moon, Paperclip, Pencil,
   PanelRight, Play, Plus, RefreshCw, Settings2, ShieldCheck, Sparkles, Sun, Wrench, X,
-  XCircle,
+  XCircle, Plug,
 } from 'lucide-react'
 import {
   WORKFLOW_STAGES,
@@ -15,6 +15,10 @@ import {
 } from '../core/types.js'
 import { ModelingWorkspace } from './ModelingWorkspace.js'
 import { ResearchWorkspace } from './ResearchWorkspace.js'
+import { MessageContent } from './MessageContent.js'
+import { PluginWorkspace } from './PluginWorkspace.js'
+import { DEFAULT_CONTEXT_TOKEN_BUDGET, MIN_CONTEXT_TOKEN_BUDGET, MAX_CONTEXT_TOKEN_BUDGET } from '../agent/context-budget.js'
+import { isReasoningEffort, type ReasoningEffort, type ReasoningConfig } from '../agent/reasoning.js'
 
 const EMPTY: AgentSnapshot = {
   connected: false,
@@ -24,7 +28,7 @@ const EMPTY: AgentSnapshot = {
     status: 'RUNNING', updatedAt: new Date().toISOString(), completedStages: [],
   },
   context: {
-    projectId: '', conversationId: '', workflowId: '', workflowRevision: 0, tokenBudget: 6_000,
+    projectId: '', conversationId: '', workflowId: '', workflowRevision: 0, tokenBudget: DEFAULT_CONTEXT_TOKEN_BUDGET,
     estimatedTokens: 0, memoryMessages: 0, evidenceSources: 0, evidenceChunks: 0,
     totalMessages: 0, selectedMessages: 0, omittedMessages: 0,
     generatedAt: new Date().toISOString(), sources: [],
@@ -32,11 +36,9 @@ const EMPTY: AgentSnapshot = {
   approvals: [], messages: [], activity: [], tools: [], turn: null,
 }
 
-type ReasoningEffort = 'low' | 'medium' | 'high'
-
 interface ModelCatalog {
   enabled: boolean
-  models: Array<{ id: string; label: string }>
+  models: Array<{ id: string; label: string; reasoning?: ReasoningConfig }>
   defaultModel: string
   reasoningEfforts: Array<{ id: ReasoningEffort; label: string; description: string }>
   defaultReasoningEffort: ReasoningEffort
@@ -197,8 +199,9 @@ function ApprovalCard({ approval }: { approval: ApprovalRequest }) {
   )
 }
 
-function Message({ message, approval, editing, draft, busy, onEdit, onDraftChange, onSave, onCancel }: {
+function Message({ message, approval, editing, draft, busy, showReasoning, onEdit, onDraftChange, onSave, onCancel }: {
   message: ChatMessage
+  showReasoning: boolean
   approval: ApprovalRequest | undefined
   editing: boolean
   draft: string
@@ -217,6 +220,10 @@ function Message({ message, approval, editing, draft, busy, onEdit, onDraftChang
       {agent && <div className="message__avatar"><Bot size={15} /></div>}
       <div className="message__content">
         {agent && <div className="message__author">WetFlow <span>{relativeTime(message.createdAt)}</span></div>}
+        {agent && showReasoning && message.reasoningContent && <details className="message-reasoning">
+          <summary><BrainCircuit size={14} /><span>思考过程</span><ChevronDown size={13} /></summary>
+          <div className="message-reasoning__body"><MessageContent content={message.reasoningContent} /></div>
+        </details>}
         {editing
           ? <div className="message-editor">
             <textarea
@@ -237,7 +244,7 @@ function Message({ message, approval, editing, draft, busy, onEdit, onDraftChang
               <button className="button button--primary" disabled={busy || !draft.trim()} onClick={onSave}>{busy ? <LoaderCircle className="spin" size={13} /> : <RefreshCw size={13} />}更新并重试</button>
             </div>
           </div>
-          : <><p>{presentMessage(message.content)}</p>{!agent && <button className="message-edit" aria-label="编辑消息" title="编辑消息" onClick={onEdit}><Pencil size={12} /></button>}</>}
+          : <>{agent ? <MessageContent content={presentMessage(message.content)} /> : <p>{presentMessage(message.content)}</p>}{!agent && <button className="message-edit" aria-label="编辑消息" title="编辑消息" onClick={onEdit}><Pencil size={12} /></button>}</>}
         {approval && approval.status !== 'PENDING' && <ApprovalCard approval={approval} />}
       </div>
     </article>
@@ -270,13 +277,25 @@ function StageTimeline({ currentIndex }: { currentIndex: number }) {
   )
 }
 
-function WorkflowPanel({ snapshot, onWake, onRefresh, onClose, busy }: {
+function WorkflowPanel({ snapshot, onWake, onRefresh, onClose, onContextBudget, busy }: {
   snapshot: AgentSnapshot
+  onContextBudget: (budget: number) => Promise<void>
   onWake: () => void
   onRefresh: () => void
   onClose: () => void
   busy: boolean
 }) {
+  const [budgetDraft, setBudgetDraft] = useState(String(snapshot.context.tokenBudget))
+  const [budgetSaving, setBudgetSaving] = useState(false)
+  const [budgetError, setBudgetError] = useState<string>()
+  const [budgetSaved, setBudgetSaved] = useState(false)
+  useEffect(() => { setBudgetDraft(String(snapshot.context.tokenBudget)) }, [snapshot.context.tokenBudget])
+  const saveBudget = async () => {
+    setBudgetSaving(true); setBudgetError(undefined); setBudgetSaved(false)
+    try { await onContextBudget(Number(budgetDraft)); setBudgetSaved(true) }
+    catch (error) { setBudgetError(error instanceof Error ? error.message : String(error)) }
+    finally { setBudgetSaving(false) }
+  }
   const [currentTime, setCurrentTime] = useState(Date.now())
   const [activityOpen, setActivityOpen] = useState(true)
   const currentIndex = WORKFLOW_STAGES.findIndex(stage => stage.key === snapshot.workflow.currentStage)
@@ -337,13 +356,22 @@ function WorkflowPanel({ snapshot, onWake, onRefresh, onClose, busy }: {
           <div><span>消息</span><strong>{snapshot.context.selectedMessages} / {snapshot.context.totalMessages}</strong></div>
           <div><span>估算 Token</span><strong>{snapshot.context.estimatedTokens.toLocaleString()} / {snapshot.context.tokenBudget.toLocaleString()}</strong></div>
         </div>
+        <form className="context-budget" onSubmit={event => { event.preventDefault(); void saveBudget() }}>
+          <label htmlFor="context-token-budget">上下文预算</label>
+          <div><input id="context-token-budget" type="number" min={MIN_CONTEXT_TOKEN_BUDGET} max={MAX_CONTEXT_TOKEN_BUDGET} step="1" value={budgetDraft}
+            disabled={busy || budgetSaving} onChange={event => { setBudgetDraft(event.target.value); setBudgetSaved(false) }} required />
+            <button type="submit" disabled={busy || budgetSaving}>{budgetSaving ? '保存中' : '保存'}</button></div>
+          <small>最高 1,000,000 Token；需在模型支持的范围内设置。</small>
+          {budgetError && <small role="alert">{budgetError}</small>}
+          {budgetSaved && <small role="status">已保存，后续请求生效</small>}
+        </form>
         <div className="context-window__sources">
           <span>长期记忆 <strong>{snapshot.context.memoryMessages}</strong></span>
           <span>证据片段 <strong>{snapshot.context.evidenceChunks}</strong></span>
         </div>
         <div className="context-window__track"><i style={{ width: `${Math.min(100, snapshot.context.estimatedTokens / Math.max(1, snapshot.context.tokenBudget) * 100)}%` }} /></div>
         <small>{snapshot.context.omittedMessages > 0
-          ? `${snapshot.context.omittedMessages} 条较早消息未进入本轮模型请求`
+          ? `${snapshot.context.omittedMessages} 条较早消息原文未直接带入；可用信息可能保留在记忆中`
           : '当前对话消息均可进入本轮模型请求'}</small>
       </section>
 
@@ -384,6 +412,7 @@ export function App() {
   const [toolsOpen, setToolsOpen] = useState(false)
   const [modelingOpen, setModelingOpen] = useState(false)
   const [researchOpen, setResearchOpen] = useState(false)
+  const [pluginsOpen, setPluginsOpen] = useState(() => new URLSearchParams(window.location.search).get('view') === 'plugins')
   const [conversationList, setConversationList] = useState<ConversationList>({ activeId: '', items: [] })
   const [editingConversationId, setEditingConversationId] = useState<string>()
   const [conversationTitleDraft, setConversationTitleDraft] = useState('')
@@ -399,10 +428,18 @@ export function App() {
   const [settingsForm, setSettingsForm] = useState<ModelSettingsForm>({
     provider: 'openai-compatible', baseUrl: '', apiKey: '', model: '',
   })
+  const [showReasoning, setShowReasoning] = useState(() => window.localStorage.getItem('wetflow.showReasoning') === 'true')
+  useEffect(() => { window.localStorage.setItem('wetflow.showReasoning', String(showReasoning)) }, [showReasoning])
   const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>(() => {
     const saved = window.localStorage.getItem('wetflow.reasoningEffort')
-    return saved === 'low' || saved === 'high' ? saved : 'medium'
+    return isReasoningEffort(saved) ? saved : 'medium'
   })
+  const selectedReasoning = useMemo(() => modelCatalog.models
+    .find(item => item.id === (selectedModel || modelCatalog.defaultModel))?.reasoning
+    ?? { efforts: modelCatalog.reasoningEfforts, defaultEffort: modelCatalog.defaultReasoningEffort },
+  [modelCatalog, selectedModel])
+  const effectiveReasoningEffort = selectedReasoning.efforts.some(item => item.id === reasoningEffort)
+    ? reasoningEffort : selectedReasoning.defaultEffort
   const [dark, setDark] = useState(() => {
     const saved = window.localStorage.getItem('wetflow.theme')
     return saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -457,9 +494,6 @@ export function App() {
       setSelectedModel(current => catalog.models.some(item => item.id === current)
         ? current
         : catalog.defaultModel || catalog.models[0]?.id || '')
-      setReasoningEffort(current => catalog.reasoningEfforts.some(item => item.id === current)
-        ? current
-        : catalog.defaultReasoningEffort)
     }).catch(() => setModelCatalog(BUILTIN_MODELS))
     const source = new EventSource('/api/events')
     source.onopen = () => void load()
@@ -538,7 +572,10 @@ export function App() {
         method: 'POST',
         body: JSON.stringify({
           content: value,
-          ...(modelCatalog.enabled && selectedModel ? { model: selectedModel, reasoningEffort } : {}),
+          ...(modelCatalog.enabled ? {
+            model: selectedModel || modelCatalog.defaultModel,
+            reasoningEffort: effectiveReasoningEffort,
+          } : {}),
         }),
       })
       shouldScrollRef.current = true
@@ -563,7 +600,10 @@ export function App() {
         method: 'PATCH',
         body: JSON.stringify({
           content,
-          ...(modelCatalog.enabled && selectedModel ? { model: selectedModel, reasoningEffort } : {}),
+          ...(modelCatalog.enabled ? {
+            model: selectedModel || modelCatalog.defaultModel,
+            reasoningEffort: effectiveReasoningEffort,
+          } : {}),
         }),
       })
       shouldScrollRef.current = true
@@ -816,9 +856,6 @@ export function App() {
       setSelectedModel(catalog.models.some(item => item.id === settings.model)
         ? settings.model
         : catalog.defaultModel || catalog.models[0]?.id || '')
-      setReasoningEffort(current => catalog.reasoningEfforts.some(item => item.id === current)
-        ? current
-        : catalog.defaultReasoningEffort)
       setSettingsOpen(false)
       setSettingsForm(current => ({ ...current, apiKey: '' }))
     } catch (cause) {
@@ -880,11 +917,12 @@ export function App() {
         <div className="brand-mark"><FlaskConical size={16} /></div>
         <button className="rail-button rail-new-chat" aria-label="新建对话" title="新建对话" disabled={busy} onClick={() => void newConversation()}><Plus size={18} /></button>
         <button className={`rail-button ${workspaceMenuOpen ? 'rail-button--active' : ''}`} aria-label="项目与工作流运行" aria-expanded={workspaceMenuOpen} onClick={toggleWorkspaceMenu}><FolderKanban size={17} /></button>
-        <button className={`rail-button ${modelingOpen ? 'rail-button--active' : ''}`} aria-label="生物过程建模" title="生物过程建模" aria-pressed={modelingOpen} onClick={() => { setModelingOpen(value => !value); setResearchOpen(false) }}><FlaskConical size={17} /></button>
-        <button className={`rail-button ${researchOpen ? 'rail-button--active' : ''}`} aria-label="搜索建库" title="搜索建库" aria-pressed={researchOpen} onClick={() => { setResearchOpen(value => !value); setModelingOpen(false) }}><Database size={17} /></button>
+        <button className={`rail-button ${modelingOpen ? 'rail-button--active' : ''}`} aria-label="生物过程建模" title="生物过程建模" aria-pressed={modelingOpen} onClick={() => { setModelingOpen(value => !value); setResearchOpen(false); setPluginsOpen(false) }}><FlaskConical size={17} /></button>
+        <button className={`rail-button ${researchOpen ? 'rail-button--active' : ''}`} aria-label="搜索建库" title="搜索建库" aria-pressed={researchOpen} onClick={() => { setResearchOpen(value => !value); setModelingOpen(false); setPluginsOpen(false) }}><Database size={17} /></button>
         <button className={`rail-button ${conversationMenuOpen ? 'rail-button--active' : ''}`} aria-label="对话列表" aria-expanded={conversationMenuOpen} onClick={toggleConversationMenu}><MessageSquare size={17} /></button>
         <button className={`rail-button ${panelOpen ? 'rail-button--active' : ''}`} aria-label={panelOpen ? '隐藏工作流' : '查看工作流'} onClick={() => setPanelOpen(value => !value)}><Activity size={17} /></button>
         <button className={`rail-button ${toolsOpen ? 'rail-button--active' : ''}`} aria-label="工具与唤醒" aria-expanded={toolsOpen} onClick={() => { setToolsOpen(value => !value); setConversationMenuOpen(false); setWorkspaceMenuOpen(false); setEvidenceOpen(false) }}><Wrench size={16} /></button>
+        <button className={`rail-button ${pluginsOpen ? 'rail-button--active' : ''}`} aria-label="Plugin lifecycle" title="Plugin lifecycle" aria-pressed={pluginsOpen} onClick={() => { setPluginsOpen(value => !value); setModelingOpen(false); setResearchOpen(false); setPanelOpen(false) }}><Plug size={17} /></button>
         <div className="rail-spacer" />
         <button className="icon-button" aria-label={dark ? '切换为浅色外观' : '切换为深色外观'} aria-pressed={dark} onClick={() => setDark(value => !value)}>{dark ? <Sun size={15} /> : <Moon size={15} />}</button>
         <button className={`icon-button ${settingsOpen ? 'icon-button--active' : ''}`} aria-label="模型设置" aria-haspopup="dialog" onClick={() => void openSettings()}><Settings2 size={15} /></button>
@@ -902,17 +940,19 @@ export function App() {
           <div className="topbar__actions">
             <button className="mobile-theme" aria-label="新建对话" title="新建对话" disabled={busy} onClick={() => void newConversation()}><Plus size={16} /></button>
             <button className="mobile-theme" aria-label="对话列表" aria-expanded={conversationMenuOpen} onClick={toggleConversationMenu}><History size={15} /></button>
-            <button className="mobile-theme" aria-label="搜索建库" aria-pressed={researchOpen} onClick={() => { setResearchOpen(value => !value); setModelingOpen(false) }}><Database size={15} /></button>
+            <button className="mobile-theme" aria-label="搜索建库" aria-pressed={researchOpen} onClick={() => { setResearchOpen(value => !value); setModelingOpen(false); setPluginsOpen(false) }}><Database size={15} /></button>
             <button className="mobile-theme" aria-label="工具与唤醒" aria-expanded={toolsOpen} onClick={() => { setToolsOpen(value => !value); setConversationMenuOpen(false); setWorkspaceMenuOpen(false); setEvidenceOpen(false) }}><Wrench size={15} /></button>
             <button className="mobile-theme" aria-label={dark ? '切换为浅色外观' : '切换为深色外观'} aria-pressed={dark} onClick={() => setDark(value => !value)}>{dark ? <Sun size={15} /> : <Moon size={15} />}</button>
             <button className="mobile-theme" aria-label="模型设置" aria-haspopup="dialog" onClick={() => void openSettings()}><Settings2 size={15} /></button>
             <button className={`agent-pill agent-pill--${state.tone}`} onClick={() => setPanelOpen(true)} aria-label={`${state.label}，打开工作流状态`} aria-live="polite">
-              <span className="status-dot" /><span><strong>{state.label}</strong><small>{state.detail}</small></span><PanelRight size={14} />
+              <span className="status-dot" /><span><strong>{pluginsOpen ? ({ READY: 'Agent ready', THINKING: 'Agent working', WAITING: 'Awaiting approval', PAUSED: 'Workflow paused' }[snapshot.agentState]) : state.label}</strong><small>{pluginsOpen ? (snapshot.connected ? 'Local service running' : 'Connecting to service') : state.detail}</small></span><PanelRight size={14} />
             </button>
           </div>
         </header>
 
-        {researchOpen
+        {pluginsOpen
+          ? <PluginWorkspace />
+          : researchOpen
           ? <ResearchWorkspace key={workspaceCatalog.activeWorkflowRunId || snapshot.workflow.id} runId={workspaceCatalog.activeWorkflowRunId || snapshot.workflow.id} />
           : modelingOpen
           ? <ModelingWorkspace key={workspaceCatalog.activeWorkflowRunId || snapshot.workflow.id} runId={workspaceCatalog.activeWorkflowRunId || snapshot.workflow.id} />
@@ -936,6 +976,7 @@ export function App() {
                 <Message
                   key={message.id}
                   message={message}
+                  showReasoning={showReasoning}
                   approval={message.approvalId ? approvalsById.get(message.approvalId) : undefined}
                   editing={editingMessageId === message.id}
                   draft={editingMessageId === message.id ? messageDraft : ''}
@@ -1019,16 +1060,20 @@ export function App() {
                 <BrainCircuit size={13} />
                 <span className="select-prefix">思考</span>
                 <select
-                  value={reasoningEffort}
+                  value={effectiveReasoningEffort}
                   disabled={busy || !externalModelSelected}
                   onChange={event => setReasoningEffort(event.target.value as ReasoningEffort)}
                   aria-label="设置模型思考强度"
                 >
-                  {modelCatalog.reasoningEfforts.map(effort => (
+                  {selectedReasoning.efforts.map(effort => (
                     <option key={effort.id} value={effort.id}>{effort.label} · {effort.description}</option>
                   ))}
                 </select>
                 <ChevronDown size={12} />
+              </label>
+              <label className="reasoning-visibility" title="仅控制是否显示模型返回的思考过程，不改变思考强度">
+                <input type="checkbox" role="switch" checked={showReasoning} onChange={event => setShowReasoning(event.target.checked)} aria-label="显示思考过程" />
+                <span>显示思考过程</span>
               </label>
               {!externalModelSelected && <span className="model-mode-note">内置规则模式</span>}
             </div>
@@ -1195,6 +1240,10 @@ export function App() {
       >
         <WorkflowPanel
           snapshot={snapshot}
+          onContextBudget={async tokenBudget => {
+            const updated = await request<AgentSnapshot>('/api/context-settings', { method: 'PATCH', body: JSON.stringify({ tokenBudget }) })
+            setSnapshot(updated)
+          }}
           onWake={wake}
           onRefresh={() => void load()}
           onClose={() => setPanelOpen(false)}

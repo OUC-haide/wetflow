@@ -17,7 +17,8 @@
     ".": "./dist/node/cordis.js",
     "./core": "./dist/node/core.js",
     "./agent": "./dist/node/agent.js",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./plugins": "./dist/node/plugins.js"
   },
   "bin": {
     "wetflow": "./dist/node/cli.js",
@@ -41,7 +42,11 @@
     "build": "npm run typecheck && npm run bundle:node && npm run bundle:web",
     "test": "vitest run --testTimeout=15000",
     "check": "npm run build && npm run test",
-    "verify:release": "npm run check && npm pack --dry-run"
+    "verify:release": "npm run check && npm pack --dry-run",
+    "demo:plugins": "tsx scripts/plugin-lifecycle-demo.ts",
+    "demo:feeds": "tsx scripts/feed-comparison-demo.ts",
+    "demo:design": "tsx scripts/design-validation-cases.ts",
+    "demo:education": "tsx scripts/education-demo.ts"
   },
   "engines": {
     "node": ">=22.19"
@@ -54,6 +59,8 @@
     "lucide-react": "^0.468.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "zod": "^3.24.1"
   },
   "devDependencies": {

@@ -3,6 +3,39 @@ import type { WetFlowStore } from '../core/store.js'
 
 export class ToolRegistry {
   private readonly tools = new Map<string, ToolDefinition<Record<string, unknown>, unknown>>()
+  private readonly owners = new Map<string, string>()
+
+  /** Stage a complete plugin registration; dispose only this mount's tools. */
+  mount(owner: string, register: (registry: ToolRegistry) => void): () => void {
+    const staged = new ToolRegistry()
+    register(staged)
+    for (const name of staged.tools.keys()) {
+      if (this.tools.has(name)) throw new Error(`Tool ${name} is already registered`)
+    }
+    let active = true
+    const installed = new Map<string, ToolDefinition<Record<string, unknown>, unknown>>()
+    for (const [name, tool] of staged.tools) {
+      const guarded = { ...tool, execute: (input: Record<string, unknown>, context?: import('../core/types.js').ToolAuthorizationContext) => {
+        if (!active) throw new Error(`Plugin ${owner} is unloaded; tool ${name} is unavailable`)
+        return tool.execute(input, context)
+      } }
+      this.tools.set(name, guarded)
+      this.owners.set(name, owner)
+      installed.set(name, guarded)
+    }
+    return () => {
+      active = false
+      for (const [name, tool] of installed) {
+        if (this.tools.get(name) !== tool) continue
+        this.tools.delete(name)
+        this.owners.delete(name)
+      }
+    }
+  }
+
+  ownedBy(owner: string): string[] {
+    return [...this.owners].filter(([, value]) => value === owner).map(([name]) => name)
+  }
 
   register(tool: ToolDefinition<Record<string, unknown>, unknown>): void {
     if (this.tools.has(tool.name)) throw new Error(`工具 ${tool.name} 已注册。`)

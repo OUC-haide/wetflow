@@ -3,6 +3,7 @@ import type { AgentEvent, AgentSnapshot, AgentTurnStats, AgentTurnStatus, Approv
 import type { WetFlowStore } from '../core/store.js'
 import { createWetFlowTools, proposalForMessage, type ToolRegistry } from './tools.js'
 import { composeModelContext, type ModelContextFrame } from './context.js'
+import { DEFAULT_CONTEXT_TOKEN_BUDGET, isContextTokenBudget } from './context-budget.js'
 import { EVIDENCE_RESPONSE_POLICY } from './evidence-policy.js'
 import {
   WETFLOW_SYSTEM_PROMPT,
@@ -45,6 +46,8 @@ export interface WetFlowAgentOptions {
   additionalContext?: (workflowRunId: string) => string
   /** Consent for sending automatically retrieved document text to a cloud model. */
   allowDocumentExcerpts?: () => boolean
+  /** Cordis hosts resolve this dynamically so unloading Evidence removes retrieval. */
+  evidenceSearch?: (query: string, limit: number) => ReturnType<WetFlowStore['searchEvidence']>
 }
 
 export class WetFlowAgent {
@@ -95,6 +98,12 @@ export class WetFlowAgent {
     if (!this.provider) return { enabled: false, models: [{ id: 'builtin', label: '内置 Agent' }], defaultModel: 'builtin' }
     const models = [...await this.provider.models(), { id: 'builtin', label: '内置 Agent' }]
     return { enabled: true, models, defaultModel: this.provider.defaultModel() || models[0]?.id || '' }
+  }
+
+  setContextTokenBudget(tokenBudget: number): void {
+    if (!isContextTokenBudget(tokenBudget)) throw new Error('上下文预算须为 1,024 至 1,000,000 之间的整数。')
+    if (this.state === 'THINKING') throw new Error('请等待当前回复完成后再调整上下文预算。')
+    this.options.contextTokenBudget = tokenBudget
   }
 
   setProvider(provider?: ModelProvider): void {
@@ -189,7 +198,7 @@ export class WetFlowAgent {
       return this.snapshot()
     }
 
-    const evidence = this.store.searchEvidence(normalized, 3)
+    const evidence = this.searchEvidence(normalized, 3)
     if (evidence.length > 0 && (/资料|证据|文件|记录|文献|数据|结果|查找|检索|根据|显示/.test(normalized)
       || (evidence[0]?.score ?? 0) >= 6)) {
       const excerpts = evidence.map(chunk => {
@@ -232,6 +241,9 @@ export class WetFlowAgent {
     const deadlineMs = this.options.loopDeadlineMs ?? DEFAULT_LOOP_DEADLINE_MS
     const startedAt = this.monotonicMs()
     const startedWall = this.wallClockIso()
+    const reasoning: string[] = []
+    const addResponse = (content: string, approvalId?: string) =>
+      this.store.addMessage('assistant', content, approvalId, reasoning.join('\n\n'))
     const session: ModelSession = { messages: [], toolChoice: 'auto' }
     const authContext: ToolAuthorizationContext = { userMessage: normalized }
     let executions = 0
@@ -255,7 +267,7 @@ export class WetFlowAgent {
       const documentConsent = this.options.allowDocumentExcerpts?.() ?? false
       if (startedWithDocumentConsent && !documentConsent) {
         const notice = '文献片段发送已关闭，本轮已停止继续调用模型；本地资料仍保留。请重新发送问题。'
-        this.store.addMessage('assistant', notice)
+        addResponse(notice)
         this.setTurn('answered', { toolExecutions: executions, toolSuccesses: successes, toolFailures: failures, modelTurns: turns, requestedToolCalls, toolBudgetReached, startedAt: startedWall })
         this.state = 'READY'
         return this.snapshot()
@@ -268,7 +280,7 @@ export class WetFlowAgent {
         const context = this.contextFrame(this.store.workflow(), normalized, documentConsent)
         if (documentConsent && !(this.options.allowDocumentExcerpts?.() ?? false)) {
           const notice = '文献片段发送已关闭，本轮已停止继续调用模型；本地资料仍保留。请重新发送问题。'
-          this.store.addMessage('assistant', notice)
+          addResponse(notice)
           this.setTurn('answered', { toolExecutions: executions, toolSuccesses: successes, toolFailures: failures, modelTurns: turns, requestedToolCalls, toolBudgetReached, startedAt: startedWall })
           this.state = 'READY'
           return this.snapshot()
@@ -276,7 +288,7 @@ export class WetFlowAgent {
         turn = await provider.complete(context, this.tools, options, session)
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error)
-        this.store.addMessage('assistant', `模型请求失败：${reason}。本轮未执行任何需要审批的提案。`)
+        addResponse(`模型请求失败：${reason}。本轮未执行任何需要审批的提案。`)
         this.setTurn('provider_error', {
           toolExecutions: executions, toolSuccesses: successes, toolFailures: failures, modelTurns: turns, requestedToolCalls, toolBudgetReached,
           startedAt: startedWall, error: reason,
@@ -285,9 +297,10 @@ export class WetFlowAgent {
         return this.snapshot()
       }
 
+      if (turn.reasoningContent?.trim()) reasoning.push(turn.reasoningContent)
       const calls = normalizeToolCalls(turn)
       if (calls.length === 0) {
-        this.store.addMessage('assistant', turn.content || '模型没有返回文字内容。')
+        addResponse(turn.content || '模型没有返回文字内容。')
         this.setTurn('answered', {
           toolExecutions: executions, toolSuccesses: successes, toolFailures: failures, modelTurns: turns, requestedToolCalls, toolBudgetReached, startedAt: startedWall,
         })
@@ -330,7 +343,7 @@ export class WetFlowAgent {
               role: 'tool', toolCallId: reference.id, name: call.name,
               content: `已生成待审批提案「${staged.title}」，未执行任何变更。`,
             })
-            this.store.addMessage('assistant', `${staged.summary}\n\n这项操作需要你明确通过，我会在审批前保持工作流不变。`, staged.approval.id)
+            addResponse(`${staged.summary}\n\n这项操作需要你明确通过，我会在审批前保持工作流不变。`, staged.approval.id)
             this.setTurn('approval_pending', {
               toolExecutions: executions, toolSuccesses: successes, toolFailures: failures, modelTurns: turns, requestedToolCalls, toolBudgetReached, startedAt: startedWall,
             })
@@ -381,7 +394,7 @@ export class WetFlowAgent {
     }
 
     const notice = unfinished?.message ?? `本轮模型调用次数已达到 ${maxTurns} 次上限，未能得到最终回答。`
-    this.store.addMessage('assistant', notice)
+    addResponse(notice)
     this.setTurn(unfinished?.status ?? 'budget_exhausted', {
       toolExecutions: executions, toolSuccesses: successes, toolFailures: failures, modelTurns: turns, requestedToolCalls, toolBudgetReached,
       startedAt: startedWall, error: notice,
@@ -517,21 +530,31 @@ export class WetFlowAgent {
   private contextFrame(workflow = this.store.workflow(), query?: string, documentConsent = this.options.allowDocumentExcerpts?.() ?? false): ModelContextFrame {
     const messages = this.store.messagesForContext()
     const latestUserMessage = [...messages].reverse().find(message => message.role === 'user')
-    const memory = documentConsent ? this.store.conversationMemory() : undefined
     const additionalContext = documentConsent ? this.options.additionalContext?.(workflow.id) ?? '' : ''
     const privacyNote = documentConsent ? '' : '\n\n隐私设置：自动文档片段发送已关闭。不要调用需要读取或引用文献正文的工具；只可用来源标识与文献信息回答。用户本次直接输入的内容仍可作为问题上下文。'
-    return composeModelContext({
+    const contextOptions = {
       instructions: `${SYSTEM_PROMPT}${privacyNote}${additionalContext ? `\n\n${additionalContext}` : ''}`,
       workflow,
       conversationId: this.store.activeConversationId(),
-      ...(memory ? { memory } : {}),
-      evidence: documentConsent ? this.store.searchEvidence(query ?? latestUserMessage?.content ?? '', 6) : [],
+      evidence: documentConsent ? this.searchEvidence(query ?? latestUserMessage?.content ?? '', 6) : [],
       messages: documentConsent ? messages : (latestUserMessage ? [latestUserMessage] : []),
       // Match the provider request: full definitions include the JSON Schema
       // that actually consumes tokens. `risk` is a short extra label only.
       tools: this.tools.definitions(),
-      tokenBudget: this.options.contextTokenBudget ?? 6_000,
-    })
+      tokenBudget: this.options.contextTokenBudget ?? DEFAULT_CONTEXT_TOKEN_BUDGET,
+    }
+    const full = composeModelContext(contextOptions)
+    // Keep original messages whenever they fit; increasing the budget must not
+    // leave the conversation artificially restricted to the last eight messages.
+    if (documentConsent && full.stats.omittedMessages > 0) {
+      const memory = this.store.conversationMemory(Math.max(1, full.stats.selectedMessages))
+      if (memory) return composeModelContext({ ...contextOptions, memory })
+    }
+    return full
+  }
+
+  private searchEvidence(query: string, limit: number): ReturnType<WetFlowStore['searchEvidence']> {
+    return this.options.evidenceSearch ? this.options.evidenceSearch(query, limit) : this.store.searchEvidence(query, limit)
   }
 }
 
@@ -541,7 +564,8 @@ function normalizeToolCalls(turn: ModelTurn): ModelToolCall[] {
 }
 
 const DOCUMENT_TEXT_FIELDS = new Set(['text', 'abstract', 'snippet', 'evidencequote', 'quote', 'body', 'fulltext', 'content'])
-const DOCUMENT_TOOL_BLOCKLIST = new Set(['research_fetch_source', 'research_source_read', 'research_records', 'research_query', 'research_record_add'])
+const DOCUMENT_TOOL_BLOCKLIST = new Set([
+  'evidence_search','research_fetch_source', 'research_source_read', 'research_records', 'research_query', 'research_record_add'])
 
 function documentConsentForTool(allowed: boolean, name: string): boolean {
   return allowed || !DOCUMENT_TOOL_BLOCKLIST.has(name)

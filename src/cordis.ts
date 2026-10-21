@@ -1,16 +1,11 @@
 import { z } from 'zod'
 import { WetFlowStore } from './core/store.js'
 import { WetFlowAgent } from './agent/runtime.js'
+import { DEFAULT_CONTEXT_TOKEN_BUDGET, MIN_CONTEXT_TOKEN_BUDGET, MAX_CONTEXT_TOKEN_BUDGET } from './agent/context-budget.js'
 import { OpenAICompatibleProvider } from './agent/provider.js'
 import type { ToolRegistry } from './agent/tools.js'
 
-interface CordisContext {
-  wetflow: WetFlowAgent
-  reflect: { provide(name: string, value: unknown): unknown }
-  effect(execute: () => () => void, label?: string): unknown
-  plugin(plugin: unknown, config?: unknown): PromiseLike<unknown>
-  fiber: { dispose(): Promise<void> }
-}
+import type { WetFlowContext as CordisContext } from './plugins/types.js'
 
 type CordisContextConstructor = new () => CordisContext
 
@@ -30,6 +25,7 @@ export interface Config {
   additionalContext?: (workflowRunId: string) => string
   /** Consent for sending automatically retrieved document excerpts to models. */
   allowDocumentExcerpts?: () => boolean
+  evidenceSearch?: (query: string, limit: number) => ReturnType<WetFlowStore['searchEvidence']>
 }
 
 export const Config = z.object({
@@ -38,10 +34,11 @@ export const Config = z.object({
   modelApiKey: z.string().default(''),
   model: z.string().default(''),
   models: z.array(z.string()).default([]),
-  contextTokenBudget: z.number().int().min(1_024).max(100_000).default(6_000),
+  contextTokenBudget: z.number().int().min(MIN_CONTEXT_TOKEN_BUDGET).max(MAX_CONTEXT_TOKEN_BUDGET).default(DEFAULT_CONTEXT_TOKEN_BUDGET),
   registerTools: z.function().optional(),
   additionalContext: z.function().optional(),
   allowDocumentExcerpts: z.function().optional(),
+  evidenceSearch: z.function().optional(),
 })
 
 export const name = 'wetflow-agent'
@@ -60,6 +57,7 @@ export function apply(ctx: CordisContext, config: Config): void {
     ...(config.contextTokenBudget ? { contextTokenBudget: config.contextTokenBudget } : {}),
     ...(config.registerTools ? { registerTools: config.registerTools } : {}),
     ...(config.additionalContext ? { additionalContext: config.additionalContext } : {}),
+    ...(config.evidenceSearch ? { evidenceSearch: config.evidenceSearch } : {}),
     ...(config.allowDocumentExcerpts ? { allowDocumentExcerpts: config.allowDocumentExcerpts } : {}),
   })
   ctx.reflect.provide('wetflow', agent)
@@ -76,6 +74,6 @@ export async function createWetFlowContext(config: Config = {}): Promise<WetFlow
   // while its documented ESM runtime exports it. Keep the workaround local.
   const runtime = await import('cordis') as unknown as { Context: CordisContextConstructor }
   const ctx = new runtime.Context()
-  await ctx.plugin({ name, Config, apply }, config)
+  await ctx.plugin({ name, Config, apply }, { ...config, evidenceSearch: config.evidenceSearch ?? ((query: string, limit: number) => ctx.wetflowEvidence?.search(query, limit) ?? []) })
   return ctx as WetFlowContext
 }
