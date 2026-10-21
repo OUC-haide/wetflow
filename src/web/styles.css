@@ -738,3 +738,14 @@ kbd { min-width: 18px; margin: 0 2px; padding: 1px 5px; color: var(--muted); bor
 .research-fulltext { margin-top:20px; border-top:1px solid var(--line); padding-top:14px; }
 .research-fulltext summary { cursor:pointer; font-size:13px; font-weight:600; }
 .research-fulltext pre { margin-top:14px; }
+
+/* Model-provided reasoning stays separate from the final answer. */
+.reasoning-visibility { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; cursor: pointer; white-space: nowrap; }
+.reasoning-visibility input { accent-color: var(--accent); width: 15px; height: 15px; margin: 0; cursor: pointer; }
+.message-reasoning { margin: 8px 0 14px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.message-reasoning summary { display: flex; align-items: center; gap: 8px; padding: 10px 12px; cursor: pointer; color: var(--muted); font-size: 13px; list-style: none; }
+.message-reasoning summary::-webkit-details-marker { display: none; }
+.message-reasoning summary svg:last-child { margin-left: auto; transition: transform .15s; }
+.message-reasoning[open] summary svg:last-child { transform: rotate(180deg); }
+.message-reasoning__body { padding: 0 14px 12px; max-height: 360px; overflow: auto; overflow-wrap: anywhere; font-size: 13px; line-height: 1.75; }
+.message-reasoning__body > :first-child { margin-top: 0; }

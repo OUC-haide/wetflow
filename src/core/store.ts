@@ -152,6 +152,7 @@ export class WetFlowStore {
     return rows.reverse().map(row => ({
       id: String(row.id), role: String(row.role) as ChatMessage['role'], content: String(row.content),
       createdAt: String(row.created_at), ...(row.approval_id ? { approvalId: String(row.approval_id) } : {}),
+      ...(row.reasoning_content ? { reasoningContent: String(row.reasoning_content) } : {}),
     }))
   }
 
@@ -459,11 +460,13 @@ export class WetFlowStore {
     }))
   }
 
-  addMessage(role: ChatMessage['role'], content: string, approvalId?: string): ChatMessage {
-    const message: ChatMessage = { id: id('msg'), role, content, createdAt: now(), ...(approvalId ? { approvalId } : {}) }
+  addMessage(role: ChatMessage['role'], content: string, approvalId?: string, reasoningContent?: string): ChatMessage {
+    const message: ChatMessage = { id: id('msg'), role, content, createdAt: now(), ...(approvalId ? { approvalId } : {}),
+      ...(role === 'assistant' && reasoningContent?.trim() ? { reasoningContent } : {}),
+    }
     const conversationId = this.activeConversationId()
-    this.db.prepare('INSERT INTO messages (id, role, content, approval_id, created_at, conversation_id) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(message.id, role, content, approvalId ?? null, message.createdAt, conversationId)
+    this.db.prepare('INSERT INTO messages (id, role, content, approval_id, created_at, conversation_id, reasoning_content) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run(message.id, role, content, approvalId ?? null, message.createdAt, conversationId, message.reasoningContent ?? null)
     const conversation = this.db.prepare('SELECT title FROM conversations WHERE id = ?').get(conversationId) as { title: string }
     const title = role === 'user' && (conversation.title === '新对话' || conversation.title === '当前对话')
       ? content.replace(/\s+/g, ' ').trim().slice(0, 28) || conversation.title
@@ -708,6 +711,9 @@ export class WetFlowStore {
       this.db.exec('ALTER TABLE approvals ADD COLUMN workflow_revision INTEGER')
     }
     const messageColumns = this.db.prepare('PRAGMA table_info(messages)').all() as Array<{ name: string }>
+    if (!messageColumns.some(column => column.name === 'reasoning_content')) {
+      this.db.exec('ALTER TABLE messages ADD COLUMN reasoning_content TEXT')
+    }
     if (!messageColumns.some(column => column.name === 'conversation_id')) {
       this.db.exec('ALTER TABLE messages ADD COLUMN conversation_id TEXT')
     }

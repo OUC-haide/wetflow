@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add an optional, persistent display toggle for provider-returned reasoning, with collapsible sections above answers. Save reasoning separately from final answers without adding display history to future model context.
+
 - Further improve compatibility with DeepSeek thinking intensity: expose Off, Low, High and Max, explicitly send the thinking toggle and reasoning effort, and retain the selected effort when continuing tool calls or resending edited messages.
 - Add HTTP transport regression coverage for thinking parameters, model-specific options and malformed selections.
 

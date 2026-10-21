@@ -234,6 +234,9 @@ export class WetFlowAgent {
     const deadlineMs = this.options.loopDeadlineMs ?? DEFAULT_LOOP_DEADLINE_MS
     const startedAt = this.monotonicMs()
     const startedWall = this.wallClockIso()
+    const reasoning: string[] = []
+    const addResponse = (content: string, approvalId?: string) =>
+      this.store.addMessage('assistant', content, approvalId, reasoning.join('\n\n'))
     const session: ModelSession = { messages: [], toolChoice: 'auto' }
     const authContext: ToolAuthorizationContext = { userMessage: normalized }
     let executions = 0
@@ -257,7 +260,7 @@ export class WetFlowAgent {
       const documentConsent = this.options.allowDocumentExcerpts?.() ?? false
       if (startedWithDocumentConsent && !documentConsent) {
         const notice = '文献片段发送已关闭，本轮已停止继续调用模型；本地资料仍保留。请重新发送问题。'
-        this.store.addMessage('assistant', notice)
+        addResponse(notice)
         this.setTurn('answered', { toolExecutions: executions, toolSuccesses: successes, toolFailures: failures, modelTurns: turns, requestedToolCalls, toolBudgetReached, startedAt: startedWall })
         this.state = 'READY'
         return this.snapshot()
@@ -270,7 +273,7 @@ export class WetFlowAgent {
         const context = this.contextFrame(this.store.workflow(), normalized, documentConsent)
         if (documentConsent && !(this.options.allowDocumentExcerpts?.() ?? false)) {
           const notice = '文献片段发送已关闭，本轮已停止继续调用模型；本地资料仍保留。请重新发送问题。'
-          this.store.addMessage('assistant', notice)
+          addResponse(notice)
           this.setTurn('answered', { toolExecutions: executions, toolSuccesses: successes, toolFailures: failures, modelTurns: turns, requestedToolCalls, toolBudgetReached, startedAt: startedWall })
           this.state = 'READY'
           return this.snapshot()
@@ -278,7 +281,7 @@ export class WetFlowAgent {
         turn = await provider.complete(context, this.tools, options, session)
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error)
-        this.store.addMessage('assistant', `模型请求失败：${reason}。本轮未执行任何需要审批的提案。`)
+        addResponse(`模型请求失败：${reason}。本轮未执行任何需要审批的提案。`)
         this.setTurn('provider_error', {
           toolExecutions: executions, toolSuccesses: successes, toolFailures: failures, modelTurns: turns, requestedToolCalls, toolBudgetReached,
           startedAt: startedWall, error: reason,
@@ -287,9 +290,10 @@ export class WetFlowAgent {
         return this.snapshot()
       }
 
+      if (turn.reasoningContent?.trim()) reasoning.push(turn.reasoningContent)
       const calls = normalizeToolCalls(turn)
       if (calls.length === 0) {
-        this.store.addMessage('assistant', turn.content || '模型没有返回文字内容。')
+        addResponse(turn.content || '模型没有返回文字内容。')
         this.setTurn('answered', {
           toolExecutions: executions, toolSuccesses: successes, toolFailures: failures, modelTurns: turns, requestedToolCalls, toolBudgetReached, startedAt: startedWall,
         })
@@ -332,7 +336,7 @@ export class WetFlowAgent {
               role: 'tool', toolCallId: reference.id, name: call.name,
               content: `已生成待审批提案「${staged.title}」，未执行任何变更。`,
             })
-            this.store.addMessage('assistant', `${staged.summary}\n\n这项操作需要你明确通过，我会在审批前保持工作流不变。`, staged.approval.id)
+            addResponse(`${staged.summary}\n\n这项操作需要你明确通过，我会在审批前保持工作流不变。`, staged.approval.id)
             this.setTurn('approval_pending', {
               toolExecutions: executions, toolSuccesses: successes, toolFailures: failures, modelTurns: turns, requestedToolCalls, toolBudgetReached, startedAt: startedWall,
             })
@@ -383,7 +387,7 @@ export class WetFlowAgent {
     }
 
     const notice = unfinished?.message ?? `本轮模型调用次数已达到 ${maxTurns} 次上限，未能得到最终回答。`
-    this.store.addMessage('assistant', notice)
+    addResponse(notice)
     this.setTurn(unfinished?.status ?? 'budget_exhausted', {
       toolExecutions: executions, toolSuccesses: successes, toolFailures: failures, modelTurns: turns, requestedToolCalls, toolBudgetReached,
       startedAt: startedWall, error: notice,

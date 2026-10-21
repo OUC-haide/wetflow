@@ -21,7 +21,7 @@ async function fixture(model = 'deepseek-flash', toolRoundTrip = false) {
       ? { content: '', reasoning_content: 'Inspect the state.', tool_calls: [{
         id: 'state-1', type: 'function', function: { name: 'workflow_status', arguments: '{}' },
       }] }
-      : { content: 'Local transport test completed.' }
+      : { content: 'Local transport test completed.', ...(bodies.at(-1)!.thinking?.type === 'enabled' ? { reasoning_content: 'The response is ready.' } : {}) }
     res.end(JSON.stringify({ choices: [{ message }] }))
   })
   await new Promise<void>(resolve => upstream.listen(0, '127.0.0.1', resolve))
@@ -70,6 +70,12 @@ describe('reasoning settings reach the HTTP model request', () => {
     for (const body of bodies) expect(body).toMatchObject({ thinking: { type: 'enabled' }, reasoning_effort: 'max' })
     expect(bodies[1]!.messages).toContainEqual(expect.objectContaining({ role: 'assistant', reasoning_content: 'Inspect the state.' }))
     expect(bodies[1]!.messages).toContainEqual(expect.objectContaining({ role: 'tool', tool_call_id: 'state-1' }))
+    const saved = response.json().messages.at(-1)
+    expect(saved.reasoningContent).toBe('Inspect the state.\n\nThe response is ready.')
+    expect((await app.inject('/api/snapshot')).json().messages.at(-1).reasoningContent).toBe(saved.reasoningContent)
+    await app.inject({ method: 'POST', url: '/api/chat', payload: { content: 'Next question.', reasoningEffort: 'off' } })
+    expect(JSON.stringify(bodies.at(-1)!.messages)).not.toContain('Inspect the state.')
+    expect((await app.inject('/api/snapshot')).json().messages.at(-1)).not.toHaveProperty('reasoningContent')
   })
 
   it('uses the new effort when an earlier user message is edited and resent', async () => {

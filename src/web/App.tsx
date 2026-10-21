@@ -198,8 +198,9 @@ function ApprovalCard({ approval }: { approval: ApprovalRequest }) {
   )
 }
 
-function Message({ message, approval, editing, draft, busy, onEdit, onDraftChange, onSave, onCancel }: {
+function Message({ message, approval, editing, draft, busy, showReasoning, onEdit, onDraftChange, onSave, onCancel }: {
   message: ChatMessage
+  showReasoning: boolean
   approval: ApprovalRequest | undefined
   editing: boolean
   draft: string
@@ -218,6 +219,10 @@ function Message({ message, approval, editing, draft, busy, onEdit, onDraftChang
       {agent && <div className="message__avatar"><Bot size={15} /></div>}
       <div className="message__content">
         {agent && <div className="message__author">WetFlow <span>{relativeTime(message.createdAt)}</span></div>}
+        {agent && showReasoning && message.reasoningContent && <details className="message-reasoning">
+          <summary><BrainCircuit size={14} /><span>思考过程</span><ChevronDown size={13} /></summary>
+          <div className="message-reasoning__body"><MessageContent content={message.reasoningContent} /></div>
+        </details>}
         {editing
           ? <div className="message-editor">
             <textarea
@@ -401,6 +406,8 @@ export function App() {
   const [settingsForm, setSettingsForm] = useState<ModelSettingsForm>({
     provider: 'openai-compatible', baseUrl: '', apiKey: '', model: '',
   })
+  const [showReasoning, setShowReasoning] = useState(() => window.localStorage.getItem('wetflow.showReasoning') === 'true')
+  useEffect(() => { window.localStorage.setItem('wetflow.showReasoning', String(showReasoning)) }, [showReasoning])
   const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>(() => {
     const saved = window.localStorage.getItem('wetflow.reasoningEffort')
     return isReasoningEffort(saved) ? saved : 'medium'
@@ -947,6 +954,7 @@ export function App() {
                 <Message
                   key={message.id}
                   message={message}
+                  showReasoning={showReasoning}
                   approval={message.approvalId ? approvalsById.get(message.approvalId) : undefined}
                   editing={editingMessageId === message.id}
                   draft={editingMessageId === message.id ? messageDraft : ''}
@@ -1040,6 +1048,10 @@ export function App() {
                   ))}
                 </select>
                 <ChevronDown size={12} />
+              </label>
+              <label className="reasoning-visibility" title="仅控制是否显示模型返回的思考过程，不改变思考强度">
+                <input type="checkbox" role="switch" checked={showReasoning} onChange={event => setShowReasoning(event.target.checked)} aria-label="显示思考过程" />
+                <span>显示思考过程</span>
               </label>
               {!externalModelSelected && <span className="model-mode-note">内置规则模式</span>}
             </div>

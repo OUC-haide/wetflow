@@ -53,6 +53,8 @@ export interface ChatMessage {
   content: string
   createdAt: string
   approvalId?: string
+  /** Provider-returned reasoning for display; excluded from conversation context. */
+  reasoningContent?: string
 }
 
 export interface ConversationSummary {
