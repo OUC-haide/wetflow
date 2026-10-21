@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Make the context budget editable and persistent in the workbench, from 1,024 to 1,000,000 tokens, with a 128,000-token default. Retain older original messages when they fit instead of always compacting to eight recent messages.
+
 - Add an optional, persistent display toggle for provider-returned reasoning, with collapsible sections above answers. Save reasoning separately from final answers without adding display history to future model context.
 
 - Further improve compatibility with DeepSeek thinking intensity: expose Off, Low, High and Max, explicitly send the thinking toggle and reasoning effort, and retain the selected effort when continuing tool calls or resending edited messages.

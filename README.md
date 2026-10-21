@@ -47,3 +47,9 @@ npm run demo:education
 ```
 
 以上演示默认不调用模型 API，使用仓库自带的输入并将结果写入 `.wetflow/demos/`。Education 当前示例仅包含一项 30 分钟小学 DNA 活动设计；WEAVE 表示完整设计循环，核验和改进仍需后续课堂证据。需要重新生成 Agent 回答时，按说明显式使用 `--live` 并配置模型凭据。
+
+### Context budget
+
+The workbench's **模型上下文** panel includes an editable token budget and Save button. The default is 128,000, with an accepted range of 1,024–1,000,000 tokens. Changes apply to subsequent requests and survive restart in `.wetflow/context-settings.json`. A saved UI setting takes precedence over `WETFLOW_CONTEXT_TOKEN_BUDGET`; an explicit server `contextTokenBudget` option takes precedence over both on startup.
+
+This is WetFlow's estimated base-context assembly budget, not a guarantee of the selected model's capacity or the complete request's exact token count. System instructions and tool definitions also consume context; tool-call continuations add their own messages. Choose a value supported by your provider. Existing document-sharing preferences remain in effect. Older original messages are retained whenever they fit; extracted memory is used when the budget requires compaction.

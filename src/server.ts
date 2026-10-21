@@ -10,6 +10,7 @@ import { createWetFlowPlugins, PLUGIN_IDS, type PluginId } from './plugins/index
 import type { AgentEvent } from './core/types.js'
 import type { ReasoningEffort } from './agent/provider.js'
 import { OpenAICompatibleProvider } from './agent/provider.js'
+import { DEFAULT_CONTEXT_TOKEN_BUDGET, isContextTokenBudget } from './agent/context-budget.js'
 import { GENERIC_REASONING, isReasoningEffort } from './agent/reasoning.js'
 import { registerResearchRoutes } from './research/routes.js'
 import { IndustrialSettingsManager, IndustrialStore } from './industrial/index.js'
@@ -153,9 +154,15 @@ export async function createServer(options: ServerOptions = {}) {
     const model = process.env.WETFLOW_MODEL?.trim() ?? ''
     if (baseUrl && apiKey && model) modelSettings = { provider: 'openai-compatible', baseUrl, apiKey, model }
   }
-  const contextTokenBudget = options.contextTokenBudget ?? (process.env.WETFLOW_CONTEXT_TOKEN_BUDGET
+  const contextSettingsPath = join(dirname(settingsPath), 'context-settings.json')
+  let savedContextBudget: number | undefined
+  try {
+    const saved = JSON.parse(readFileSync(contextSettingsPath, 'utf8')) as { tokenBudget?: unknown }
+    if (isContextTokenBudget(saved.tokenBudget)) savedContextBudget = saved.tokenBudget
+  } catch { /* First run or invalid saved settings: use the configured default. */ }
+  const contextTokenBudget = options.contextTokenBudget ?? savedContextBudget ?? (process.env.WETFLOW_CONTEXT_TOKEN_BUDGET
     ? Number(process.env.WETFLOW_CONTEXT_TOKEN_BUDGET)
-    : undefined)
+    : DEFAULT_CONTEXT_TOKEN_BUDGET)
   const workflowDbPath = options.dbPath ?? process.env.WETFLOW_DB ?? '.wetflow/wetflow-agent.db'
   const ctx = await createWetFlowContext({
     dbPath: workflowDbPath,
@@ -335,6 +342,15 @@ export async function createServer(options: ServerOptions = {}) {
     }
   })
   app.get('/api/model-settings', async () => publicModelSettings(modelSettings))
+  app.patch<{ Body: { tokenBudget?: unknown } }>('/api/context-settings', async (request, reply) => {
+    const budget = request.body?.tokenBudget
+    if (!isContextTokenBudget(budget)) return reply.code(400).send({ error: '上下文预算须为 1,024 至 1,000,000 之间的整数。' })
+    if (agent.snapshot().agentState === 'THINKING') return reply.code(409).send({ error: '请等待当前回复完成后再调整上下文预算。' })
+    mkdirSync(dirname(contextSettingsPath), { recursive: true })
+    writeFileSync(contextSettingsPath, `${JSON.stringify({ tokenBudget: budget }, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 })
+    agent.setContextTokenBudget(budget)
+    return agent.snapshot()
+  })
   app.get('/api/privacy-settings', async () => ({ allowDocumentExcerpts }))
   app.patch<{ Body: { allowDocumentExcerpts?: boolean } }>('/api/privacy-settings', async (request, reply) => {
     if (typeof request.body?.allowDocumentExcerpts !== 'boolean') return reply.code(400).send({ error: 'allowDocumentExcerpts 必须是布尔值。' })

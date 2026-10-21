@@ -17,6 +17,7 @@ import { ModelingWorkspace } from './ModelingWorkspace.js'
 import { ResearchWorkspace } from './ResearchWorkspace.js'
 import { MessageContent } from './MessageContent.js'
 import { PluginWorkspace } from './PluginWorkspace.js'
+import { DEFAULT_CONTEXT_TOKEN_BUDGET, MIN_CONTEXT_TOKEN_BUDGET, MAX_CONTEXT_TOKEN_BUDGET } from '../agent/context-budget.js'
 import { isReasoningEffort, type ReasoningEffort, type ReasoningConfig } from '../agent/reasoning.js'
 
 const EMPTY: AgentSnapshot = {
@@ -27,7 +28,7 @@ const EMPTY: AgentSnapshot = {
     status: 'RUNNING', updatedAt: new Date().toISOString(), completedStages: [],
   },
   context: {
-    projectId: '', conversationId: '', workflowId: '', workflowRevision: 0, tokenBudget: 6_000,
+    projectId: '', conversationId: '', workflowId: '', workflowRevision: 0, tokenBudget: DEFAULT_CONTEXT_TOKEN_BUDGET,
     estimatedTokens: 0, memoryMessages: 0, evidenceSources: 0, evidenceChunks: 0,
     totalMessages: 0, selectedMessages: 0, omittedMessages: 0,
     generatedAt: new Date().toISOString(), sources: [],
@@ -276,13 +277,25 @@ function StageTimeline({ currentIndex }: { currentIndex: number }) {
   )
 }
 
-function WorkflowPanel({ snapshot, onWake, onRefresh, onClose, busy }: {
+function WorkflowPanel({ snapshot, onWake, onRefresh, onClose, onContextBudget, busy }: {
   snapshot: AgentSnapshot
+  onContextBudget: (budget: number) => Promise<void>
   onWake: () => void
   onRefresh: () => void
   onClose: () => void
   busy: boolean
 }) {
+  const [budgetDraft, setBudgetDraft] = useState(String(snapshot.context.tokenBudget))
+  const [budgetSaving, setBudgetSaving] = useState(false)
+  const [budgetError, setBudgetError] = useState<string>()
+  const [budgetSaved, setBudgetSaved] = useState(false)
+  useEffect(() => { setBudgetDraft(String(snapshot.context.tokenBudget)) }, [snapshot.context.tokenBudget])
+  const saveBudget = async () => {
+    setBudgetSaving(true); setBudgetError(undefined); setBudgetSaved(false)
+    try { await onContextBudget(Number(budgetDraft)); setBudgetSaved(true) }
+    catch (error) { setBudgetError(error instanceof Error ? error.message : String(error)) }
+    finally { setBudgetSaving(false) }
+  }
   const [currentTime, setCurrentTime] = useState(Date.now())
   const [activityOpen, setActivityOpen] = useState(true)
   const currentIndex = WORKFLOW_STAGES.findIndex(stage => stage.key === snapshot.workflow.currentStage)
@@ -343,13 +356,22 @@ function WorkflowPanel({ snapshot, onWake, onRefresh, onClose, busy }: {
           <div><span>消息</span><strong>{snapshot.context.selectedMessages} / {snapshot.context.totalMessages}</strong></div>
           <div><span>估算 Token</span><strong>{snapshot.context.estimatedTokens.toLocaleString()} / {snapshot.context.tokenBudget.toLocaleString()}</strong></div>
         </div>
+        <form className="context-budget" onSubmit={event => { event.preventDefault(); void saveBudget() }}>
+          <label htmlFor="context-token-budget">上下文预算</label>
+          <div><input id="context-token-budget" type="number" min={MIN_CONTEXT_TOKEN_BUDGET} max={MAX_CONTEXT_TOKEN_BUDGET} step="1" value={budgetDraft}
+            disabled={busy || budgetSaving} onChange={event => { setBudgetDraft(event.target.value); setBudgetSaved(false) }} required />
+            <button type="submit" disabled={busy || budgetSaving}>{budgetSaving ? '保存中' : '保存'}</button></div>
+          <small>最高 1,000,000 Token；需在模型支持的范围内设置。</small>
+          {budgetError && <small role="alert">{budgetError}</small>}
+          {budgetSaved && <small role="status">已保存，后续请求生效</small>}
+        </form>
         <div className="context-window__sources">
           <span>长期记忆 <strong>{snapshot.context.memoryMessages}</strong></span>
           <span>证据片段 <strong>{snapshot.context.evidenceChunks}</strong></span>
         </div>
         <div className="context-window__track"><i style={{ width: `${Math.min(100, snapshot.context.estimatedTokens / Math.max(1, snapshot.context.tokenBudget) * 100)}%` }} /></div>
         <small>{snapshot.context.omittedMessages > 0
-          ? `${snapshot.context.omittedMessages} 条较早消息未进入本轮模型请求`
+          ? `${snapshot.context.omittedMessages} 条较早消息原文未直接带入；可用信息可能保留在记忆中`
           : '当前对话消息均可进入本轮模型请求'}</small>
       </section>
 
@@ -1218,6 +1240,10 @@ export function App() {
       >
         <WorkflowPanel
           snapshot={snapshot}
+          onContextBudget={async tokenBudget => {
+            const updated = await request<AgentSnapshot>('/api/context-settings', { method: 'PATCH', body: JSON.stringify({ tokenBudget }) })
+            setSnapshot(updated)
+          }}
           onWake={wake}
           onRefresh={() => void load()}
           onClose={() => setPanelOpen(false)}

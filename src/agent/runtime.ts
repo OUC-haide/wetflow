@@ -3,6 +3,7 @@ import type { AgentEvent, AgentSnapshot, AgentTurnStats, AgentTurnStatus, Approv
 import type { WetFlowStore } from '../core/store.js'
 import { createWetFlowTools, proposalForMessage, type ToolRegistry } from './tools.js'
 import { composeModelContext, type ModelContextFrame } from './context.js'
+import { DEFAULT_CONTEXT_TOKEN_BUDGET, isContextTokenBudget } from './context-budget.js'
 import { EVIDENCE_RESPONSE_POLICY } from './evidence-policy.js'
 import {
   WETFLOW_SYSTEM_PROMPT,
@@ -97,6 +98,12 @@ export class WetFlowAgent {
     if (!this.provider) return { enabled: false, models: [{ id: 'builtin', label: '内置 Agent' }], defaultModel: 'builtin' }
     const models = [...await this.provider.models(), { id: 'builtin', label: '内置 Agent' }]
     return { enabled: true, models, defaultModel: this.provider.defaultModel() || models[0]?.id || '' }
+  }
+
+  setContextTokenBudget(tokenBudget: number): void {
+    if (!isContextTokenBudget(tokenBudget)) throw new Error('上下文预算须为 1,024 至 1,000,000 之间的整数。')
+    if (this.state === 'THINKING') throw new Error('请等待当前回复完成后再调整上下文预算。')
+    this.options.contextTokenBudget = tokenBudget
   }
 
   setProvider(provider?: ModelProvider): void {
@@ -523,21 +530,27 @@ export class WetFlowAgent {
   private contextFrame(workflow = this.store.workflow(), query?: string, documentConsent = this.options.allowDocumentExcerpts?.() ?? false): ModelContextFrame {
     const messages = this.store.messagesForContext()
     const latestUserMessage = [...messages].reverse().find(message => message.role === 'user')
-    const memory = documentConsent ? this.store.conversationMemory() : undefined
     const additionalContext = documentConsent ? this.options.additionalContext?.(workflow.id) ?? '' : ''
     const privacyNote = documentConsent ? '' : '\n\n隐私设置：自动文档片段发送已关闭。不要调用需要读取或引用文献正文的工具；只可用来源标识与文献信息回答。用户本次直接输入的内容仍可作为问题上下文。'
-    return composeModelContext({
+    const contextOptions = {
       instructions: `${SYSTEM_PROMPT}${privacyNote}${additionalContext ? `\n\n${additionalContext}` : ''}`,
       workflow,
       conversationId: this.store.activeConversationId(),
-      ...(memory ? { memory } : {}),
       evidence: documentConsent ? this.searchEvidence(query ?? latestUserMessage?.content ?? '', 6) : [],
       messages: documentConsent ? messages : (latestUserMessage ? [latestUserMessage] : []),
       // Match the provider request: full definitions include the JSON Schema
       // that actually consumes tokens. `risk` is a short extra label only.
       tools: this.tools.definitions(),
-      tokenBudget: this.options.contextTokenBudget ?? 6_000,
-    })
+      tokenBudget: this.options.contextTokenBudget ?? DEFAULT_CONTEXT_TOKEN_BUDGET,
+    }
+    const full = composeModelContext(contextOptions)
+    // Keep original messages whenever they fit; increasing the budget must not
+    // leave the conversation artificially restricted to the last eight messages.
+    if (documentConsent && full.stats.omittedMessages > 0) {
+      const memory = this.store.conversationMemory(Math.max(1, full.stats.selectedMessages))
+      if (memory) return composeModelContext({ ...contextOptions, memory })
+    }
+    return full
   }
 
   private searchEvidence(query: string, limit: number): ReturnType<WetFlowStore['searchEvidence']> {
