@@ -1,10 +1,25 @@
-import { readFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { createWetFlowContext } from '../src/cordis.js'
+import * as FeedComparison from '../src/plugins/feed-comparison.js'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { compareFeeds } from '../src/plugins/feed-comparison.js'
 
 const file = new URL('../examples/md-five-feed-summary.json', import.meta.url)
 const source = () => JSON.parse(readFileSync(file, 'utf8'))
 describe('PMA–DA feed comparison extension', () => {
+  it('loads custom report feeds without requiring the bundled 1.00 and 1.25 groups', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'wetflow-custom-feeds-'))
+    const ctx = await createWetFlowContext({ dbPath: join(dir, 'core.db') })
+    try {
+      const data = source(); data.rows = data.rows.slice(0, 2)
+      const summaryPath = join(dir, 'custom.json'); writeFileSync(summaryPath, JSON.stringify(data))
+      await ctx.plugin(FeedComparison, { summaryPath })
+      const result = await ctx.wetflow.tools.get('md_compare_feeds').execute({ baselineFeed: 0.25, comparisonFeed: 0.5 }) as { fractionChangePercentagePoints: number }
+      expect(result.fractionChangePercentagePoints).toBe(-5.4)
+    } finally { await ctx.fiber.dispose(); rmSync(dir, { recursive: true, force: true }) }
+  })
   it('recomputes the recorded contact fractions from the original counts', () => {
     const result = compareFeeds(source(), { baselineFeed: 1, comparisonFeed: 1.25 })
     expect(result.rows.map(item => item.compatibleFractionPercent)).toEqual([14.5, 9.1, 25.3, 25.2, 5.2])
