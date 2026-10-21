@@ -1,0 +1,27 @@
+{
+  "task": "A-29",
+  "arm": "native",
+  "prompt": "Using only the provided files, judge the claim below about RUN-SYN-07.\nClaim: The study used a fed-batch process.\nAnswer with exactly one label on the first line: Support, Refute, or NEI.\nIf the label is Support or Refute, quote the exact sentence from the provided files on the next line.",
+  "answer": "NEI\n\n现有文件中没有任何句子说明 RUN-SYN-07 采用的是 fed-batch（补料分批）工艺，也没有明确表述为分批或其它操作模式，因此无法支持或反驳该说法。\n\n- 记录值（工具结果）：当前工作流状态为 `wf-demo`，阶段 `FERMENTATION`，`RUNNING`。\n- 资料内容（仅作待核验数据）：[证据: batch-record-RUN-SYN-07.md#1] 提到的是 \"Batch record RUN-SYN-07 (synthetic)\"，以及 \"- 0 h: inoculation\"、\"- 24 h: glucose depleted\"，全文未出现 fed-batch 或补料描述；[证据: sop-fermentation-v1.md#1] 描述的是 shaken-flask 发酵流程，也未涉及补料工艺。\n- 推断：文件名中的 \"Batch record\" 属文档类型名称，不能据此判定工艺模式，故结论为信息不足（NEI），不下强结论。",
+  "completed": true,
+  "turn_status": "answered",
+  "requested_model": "deepseek-flash",
+  "effective_model": "deepseek-flash",
+  "limits": {
+    "wall_clock_ms": 120000,
+    "tool_calls": 40
+  },
+  "model_calls": 1,
+  "model_turns": 1,
+  "tool_calls": 0,
+  "tool_trace": [],
+  "tool_activity": [],
+  "tokens": {
+    "input": 6285,
+    "output": 347,
+    "total": 6632
+  },
+  "started_at": "2026-09-24T09:17:01.915Z",
+  "finished_at": "2026-09-24T09:18:18.902Z",
+  "wall_clock_ms": 9821.857926999975
+}

@@ -4,15 +4,25 @@ WetFlow keeps the project and Agent while a Cordis plugin supplies a new operati
 
 ## Reproduce without a model API
 
-After `npm ci`, run these commands from the repository root:
+Use Node.js ≥22.19, npm and Python 3 available as `python3` (or set `PYTHON_EXECUTABLE`). No Python packages are needed. After `npm ci`, run these commands from the `wetflow/` module directory:
 
 ```sh
+npm run demo:plugins
 npm run demo:feeds
 npm run demo:design
 npm run demo:education
 ```
 
-Each command uses files under `examples/` and saves its observations under `.wetflow/demos/`. They invoke real registered tools and services without calling an external language model. Running the Education command with a separate output directory keeps each demonstration independent:
+Each command invokes real registered tools and services without calling an external language model. Inputs are bundled under `examples/` or declared in the scripts. The lifecycle case is described in [plugin-lifecycle.md](plugin-lifecycle.md). Output files are:
+
+| Command | Default output |
+| --- | --- |
+| `demo:plugins` | `artifacts/plugin-lifecycle/plugin-lifecycle-results.json` and `plugin-lifecycle-results.csv` |
+| `demo:feeds` | `.wetflow/demos/feeds/results.json` and a copy of `md-five-feed-summary.json` |
+| `demo:design` | `.wetflow/demos/design/design-validation-results.json` and `monod-trajectory.csv` |
+| `demo:education` | `.wetflow/demos/education/education-results.json`, with project and service data in the same directory |
+
+The Education output contains its request inputs, attributed case search results, source citations and structured WEAVE brief. Offline mode does not generate a model-written lesson. A usable proposed classroom sequence is provided below. Running the Education command with a separate output directory keeps each demonstration independent:
 
 ```sh
 npm run demo:education -- .wetflow/demos/education-repeat
@@ -34,6 +44,8 @@ The operation reads and validates the report. It does not start a new molecular 
 npm run demo:feeds -- path/to/summary.json .wetflow/demos/another-report
 ```
 
+The supplied report must contain feeds 1.00 and 1.25. Fixture-specific numerical assertions apply only when using the bundled default; an explicit report keeps its own validated counts, activation assumption and window. The original study's 75%-activation control reverses the high-feed ordering, so the 50% comparison does not establish a general optimal feed.
+
 ## Education tools and WEAVE
 
 `src/plugins/education.ts` supplies two tools. `education_search_cases` searches the active project's attributed experience cards by topic and audience. `education_make_brief` checks selected case IDs, audience and resources, returns exact source references supplied by Evidence, and includes the team's WEAVE design questions. The Agent uses the returned information to write an activity proposal.
@@ -45,6 +57,22 @@ WEAVE is the complete design cycle. **Wonder** identifies why the activity is ne
 The example plans one new 30-minute primary-school DNA activity using paper, colored pens, clay, a laptop and a projector. The classroom timetable belongs within Action. The tool does not distribute that time among the five WEAVE stages. Missing prior feedback stays unknown; Verify awaits classroom evidence and Echo awaits feedback and later iteration. This demonstration does not claim a delivered class or measured learning gains.
 
 The source documents include the team's DNA Builder and BUCT's attributed drawing-and-clay practice. BUCT's original audience context is retained; applying selected elements to a different classroom remains a proposed adaptation.
+
+### Proposed classroom sequence without a model API
+
+This is a new adaptation using [OUC-Haide's DNA Builder description](../examples/education/sources/OUC-EDU-ACTIVITIES.md) and [BUCT's drawing-to-clay practice](../examples/education/sources/BUCT-2025-EDUCATION.md), organized with [WEAVE](../examples/education/sources/OUC-EDU-WEAVE.md). BUCT's original audience was children with special educational needs; suitability for another class requires educator review. No classroom delivery or learning gains are claimed.
+
+Confirm exact ages, prior knowledge, group size and support needs before delivery. Prepare paper base cards labeled A, T, G and C, colored pens and clay; prepare a simple two-sided DNA diagram on the laptop for projection. A locally prepared diagram makes this sequence independent of an external activity website. The proposed goal is to identify the two-sided, paired structure and explain one complementary base pair.
+
+| Action time | Learner and facilitator steps |
+| --- | --- |
+| 0–5 min | Project the diagram. Point out the two sides and connecting base pairs; demonstrate A–T and G–C with labeled paper cards. Ask learners what connects the two sides. |
+| 5–12 min | Learners draw or arrange labeled paper cards into complementary pairs. A facilitator checks one pair with each group and helps correct mismatches. |
+| 12–22 min | Use clay to build two sides connected by the labeled pairs. Learners may retain a drawing or paper model as an alternative; provide individual support where needed. |
+| 22–27 min | Each learner or group points to the two sides and explains one pair using its model. Ask a partner to check the pairing against the projected diagram. |
+| 27–30 min | Collect one short learner explanation and record one facilitator observation about pairing, structure or support needed. Retain uncertainty rather than recording an assumed success. |
+
+These times total 30 minutes within Action. Under Wonder, record the intended audience and unconfirmed needs. Under Explore, connect the pairing goal to the diagram, labeled cards and tactile option. Under Verify, assess the collected explanation and observation against the stated goal after the lesson. Under Echo, use actual feedback to choose a revision: for example, add a pairing prompt if mismatches persist or offer a drawing option if modeling obstructs explanation. Implement and evaluate that revision before claiming an improvement.
 
 ## Optional live Agent reproduction
 
@@ -77,3 +105,9 @@ Removing Evidence suspends its dependent Education tools; restoring Evidence rea
 ## Tests
 
 `tests/education.spec.ts` covers project visibility, audience filtering, exact source markers, resource checks, missing feedback, the complete WEAVE cycle and prospective evaluation status. `tests/feed-comparison.spec.ts` covers the recorded arithmetic and refusal of incompatible or impossible inputs. The core plugin tests cover registry visibility, dependencies, cleanup and stale references.
+
+## Workbench access
+
+The plugin workspace lists the four core plugins and the optional Feed-comparison and Education extensions. Load Feed-comparison and use its example probe to compare the bundled saved report. Load Education with Evidence available, explicitly import its six example source documents into the active project, and use its DNA case search or ask the Agent to prepare a brief. Unloading Evidence suspends the dependent Education tools; reloading it restores them without deleting imported project sources.
+
+The historical adhesive follow-ups read MD summaries that already existed. They demonstrate tool-assisted interpretation of saved results, not software initiation of those earlier simulations. The retained benchmark records are also historical; the current regression tests and workbench probes validate this release separately.

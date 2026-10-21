@@ -1,0 +1,27 @@
+{
+  "task": "A-08",
+  "arm": "native",
+  "prompt": "Using only the provided files, judge the claim below about RUN-SYN-07.\nClaim: The seed stage must come before fermentation.\nAnswer with exactly one label on the first line: Support, Refute, or NEI.\nIf the label is Support or Refute, quote the exact sentence from the provided files on the next line.",
+  "answer": "Support\n\"Seed preparation must be completed before fermentation starts.\" [证据: sop-fermentation-v1.md#1]\n\n说明：该句出自 SOP 片段（仅覆盖 Aureobasidium sp. SYN-A08），工具未对 RUN-SYN-07 单独给出阶段顺序记录；这是根据所给资料的推断性判定。",
+  "completed": true,
+  "turn_status": "answered",
+  "requested_model": "deepseek-flash",
+  "effective_model": "deepseek-flash",
+  "limits": {
+    "wall_clock_ms": 120000,
+    "tool_calls": 40
+  },
+  "model_calls": 1,
+  "model_turns": 1,
+  "tool_calls": 0,
+  "tool_trace": [],
+  "tool_activity": [],
+  "tokens": {
+    "input": 6284,
+    "output": 422,
+    "total": 6706
+  },
+  "started_at": "2026-09-24T09:15:51.129Z",
+  "finished_at": "2026-09-24T09:15:59.206Z",
+  "wall_clock_ms": 8079.473914000002
+}

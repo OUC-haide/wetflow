@@ -1,28 +1,26 @@
 {
   "retrievedAt": "2026-10-19T09:40:16.401592+00:00",
   "teamRepository": "https://gitlab.igem.org/2026/ouc-haide",
-  "repositoryEducationContent": "The current education route lists interactive resources. Narrative principles and refinement history also use the supplied team PDF. Uploaded proposal PDFs remain proposals.",
+  "repositoryEducationContent": "The education route lists interactive resources. The bundled WEAVE and refinement summaries attribute the supplied team PDF. Uploaded activity proposal PDFs remain proposals.",
   "sources": [
     {
       "document": "OUC-EDU-WEAVE.md",
-      "characters": 2927,
+      "characters": 2067,
       "provenance": [
-        "Source: supplied edu-wiki说明.pdf, pages 2–3. Team-authored planning/Wiki material. The official education route is https://2026.igem.wiki/ouc-haide/education.",
-        "",
-        "Overview",
-        "Our Science Outreach Campaign, “Decoding Genes, Empowering via",
-        "Synbio,” connected interdisciplinary graduates and diverse cohorts by introducing the"
+        "Source: supplied edu-wiki说明.pdf, pages 2–3. Attribution: OUC-Haide, 2026.",
+        "Status: a curated summary of the team's education framework and reported refinements; not evidence of a lesson delivered by this software example.",
+        "WEAVE covers Wonder, Explore, Action, Verify and Echo. Activity timing belongs within Action; new evaluation and improvement claims require classroom evidence.",
+        "The attributed source describes concept cards, clay models and laboratory videos as refinement examples; the new activity's evaluation remains prospective."
       ]
     },
     {
       "document": "OUC-EDU-REFINEMENT.md",
-      "characters": 1902,
+      "characters": 1501,
       "provenance": [
-        "Source: supplied edu-wiki说明.pdf, page 12. This describes the team's activity design history; it is separate from any new guidance produced in this demonstration.",
-        "",
-        "Card 01",
-        "In our initial design, players would distinguish β-16 from β-17 by comparing their reporter signals.",
-        "They would tested prepared simulated samples, measure their fluorescence intensity, and"
+        "Source: supplied edu-wiki说明.pdf, page 12. Attribution: OUC-Haide, 2026.",
+        "Status: an attributed summary of a reported pre-test limitation and equipment-based redesign, separate from new guidance produced by this software example.",
+        "The source describes replacing fluorescence identification of simulated β-16 and β-17 samples with pH measurement after discussion with Qingdao Academy.",
+        "No sample recipes or numerical reference ranges are supplied in the bundled source. Classroom evidence cards are a proposed adaptation."
       ]
     },
     {

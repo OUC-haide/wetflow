@@ -11,8 +11,10 @@ const descriptions: Record<PluginId, string> = {
   research: 'Search literature, read sources and query records.',
   modeling: 'Run numerical models and inspect their results.',
   experiment: 'Read experiment parameters and record observations.',
+  'feed-comparison': 'Compare saved MD contact reports; this extension does not run new MD simulations.',
+  education: 'Search attributed education cases and prepare a WEAVE design brief.',
 }
-const icons = { evidence: FileSearch, research: Database, modeling: FlaskConical, experiment: Plug }
+const icons = { evidence: FileSearch, research: Database, modeling: FlaskConical, experiment: Plug, 'feed-comparison': FlaskConical, education: FileSearch }
 async function request<T>(url: string, method = 'GET'): Promise<T> {
   const response = await fetch(url, { method })
   const body = await response.json()
@@ -25,9 +27,11 @@ export function PluginWorkspace() {
   const [steps, setSteps] = useState<Step[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [exampleResults, setExampleResults] = useState<Record<string, unknown>>({})
   const [probe, setProbe] = useState<{ available: boolean; result?: { items: Array<{ label: string; id: string }> }; error?: string }>()
   async function refresh() { setSnapshot(await request<Snapshot>('/api/plugins')) }
   useEffect(() => { void refresh().catch(cause => setError(String(cause))) }, [])
+  const modules = snapshot ? [...snapshot.plugins, ...snapshot.extensions] : []
   const modeling = snapshot?.plugins.find(item => item.id === 'modeling')
   async function change(id: PluginId, action: 'load' | 'unload') {
     setBusy(true); setError(''); setProbe(undefined)
@@ -62,10 +66,25 @@ export function PluginWorkspace() {
     {error && <p className="plugin-error" role="alert">{error}</p>}
     <div className="plugin-columns">
       <div className="plugin-modules"><h2>Plugins</h2><p className="plugin-help">Each module owns its tools and service.</p>
-        {snapshot?.plugins.map(item => { const Icon = icons[item.id]; return <article className={`plugin-module ${item.id === 'modeling' ? 'plugin-module--focus' : ''}`} key={item.id}>
-          <div className="plugin-module-title"><Icon size={19} /><h3>{item.name}</h3><span className={`plugin-status ${item.loaded ? 'is-loaded' : ''}`}>{item.loaded ? 'Loaded' : 'Unloaded'}</span></div>
-          <p>{descriptions[item.id]}</p><div className="plugin-module-foot"><span>{item.tools.length} tools registered</span>
-            <button disabled={busy} aria-label={`${item.loaded ? 'Unload' : 'Load'} ${item.name}`} onClick={() => void change(item.id, item.loaded ? 'unload' : 'load')}>{item.loaded ? 'Unload' : 'Load'}</button></div>
+        {modules.map(item => { const Icon = icons[item.id]; return <article className={`plugin-module ${item.id === 'modeling' ? 'plugin-module--focus' : ''}`} key={item.id}>
+          <div className="plugin-module-title"><Icon size={19} /><h3>{item.name}</h3><span className={`plugin-status ${item.loaded ? 'is-loaded' : ''}`}>{item.loaded ? 'Loaded' : item.enabled ? 'Waiting for dependency' : 'Unloaded'}</span></div>
+          <p>{descriptions[item.id]}</p>
+          {item.id === 'education' && item.loaded && <button disabled={busy} onClick={async () => {
+            setBusy(true); setError('')
+            try { await request('/api/plugins/education/import-examples', 'POST'); await refresh() }
+            catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)) }
+            finally { setBusy(false) }
+          }}>Import education example sources</button>}{(item.id === 'education' || item.id === 'feed-comparison') && item.loaded && <>
+            <button disabled={busy} onClick={async () => {
+              setBusy(true); setError('')
+              try { const result = await request(`/api/plugins/${item.id}/probe`); setExampleResults(old => ({ ...old, [item.id]: result })) }
+              catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)) }
+              finally { setBusy(false) }
+            }}>{item.id === 'education' ? 'Search DNA education cases' : 'Try saved feed comparison'}</button>
+            {exampleResults[item.id] !== undefined && <details><summary>Tool result</summary><pre style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere',fontSize:12}}>{JSON.stringify(exampleResults[item.id], null, 2)}</pre></details>}
+          </>}
+          <div className="plugin-module-foot"><span>{item.tools.length} tools registered</span>
+            <button disabled={busy} aria-label={`${item.enabled ? 'Unload' : 'Load'} ${item.name}`} onClick={() => void change(item.id, item.enabled ? 'unload' : 'load')}>{item.enabled ? 'Unload' : 'Load'}</button></div>
         </article> })}
       </div>
       <section className="plugin-agent-tools" aria-live="polite"><div className="plugin-tools-heading"><div><h2>Agent tool registry</h2><p>{snapshot?.tools.length ?? '…'} tools available in this running instance</p></div><span className="plugin-live"><span /> Live</span></div>

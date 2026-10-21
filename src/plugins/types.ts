@@ -4,8 +4,10 @@ import type { ModelingService } from '../modeling/service.js'
 import type { ResearchService } from '../research/service.js'
 import type { IndustrialStore } from '../industrial/store.js'
 
-export type PluginId = 'evidence' | 'research' | 'modeling' | 'experiment'
+export type PluginId = 'evidence' | 'research' | 'modeling' | 'experiment' | 'feed-comparison' | 'education'
 export const PLUGIN_IDS: PluginId[] = ['evidence', 'research', 'modeling', 'experiment']
+export const OPTIONAL_PLUGIN_IDS: PluginId[] = ['feed-comparison', 'education']
+export const MANAGED_PLUGIN_IDS = [...PLUGIN_IDS, ...OPTIONAL_PLUGIN_IDS]
 export interface EvidenceService {
   sources: WetFlowStore['evidenceSources']
   search: WetFlowStore['searchEvidence']
@@ -18,6 +20,8 @@ export interface PluginFiber {
 }
 export interface WetFlowContext {
   wetflow: WetFlowAgent
+  wetflowFeedComparison?: { summaryPath: string }
+  wetflowEducation?: ReturnType<typeof import('./education.js').createEducationService>
   wetflowEvidence?: EvidenceService
   wetflowResearch?: ResearchService
   wetflowModeling?: ModelingService

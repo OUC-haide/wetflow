@@ -1,0 +1,27 @@
+{
+  "task": "A-21",
+  "arm": "native",
+  "prompt": "Using only the provided files, judge the claim below about RUN-SYN-07.\nClaim: The regulator raised the titer on wheat-straw hydrolysate.\nAnswer with exactly one label on the first line: Support, Refute, or NEI.\nIf the label is Support or Refute, quote the exact sentence from the provided files on the next line.",
+  "answer": "NEI\n\n资料中没有任何关于麦秸水解物上的效价测量数据；相反，摘录明确写道:\n\n\"The study did not report any measurement on wheat-straw hydrolysate.\" [证据: paper-excerpt-syn.md#1]\n\n含义：该文献未报告麦秸水解物上的任何测量，因此无法支持或反驳“调控因子提高了麦秸水解物上的效价”这一说法。同一片段中提到的 56.75 g/L 是在“木糖为唯一碳源”条件下，并非麦秸水解物，不能用于支持该主张。",
+  "completed": true,
+  "turn_status": "answered",
+  "requested_model": "deepseek-flash",
+  "effective_model": "deepseek-flash",
+  "limits": {
+    "wall_clock_ms": 120000,
+    "tool_calls": 40
+  },
+  "model_calls": 1,
+  "model_turns": 1,
+  "tool_calls": 0,
+  "tool_trace": [],
+  "tool_activity": [],
+  "tokens": {
+    "input": 6290,
+    "output": 385,
+    "total": 6675
+  },
+  "started_at": "2026-09-24T09:17:42.509Z",
+  "finished_at": "2026-09-24T09:17:51.977Z",
+  "wall_clock_ms": 9470.10481400002
+}

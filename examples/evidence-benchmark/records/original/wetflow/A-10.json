@@ -1,0 +1,27 @@
+{
+  "task": "A-10",
+  "arm": "native",
+  "prompt": "Using only the provided files, judge the claim below about RUN-SYN-07.\nClaim: The measured temperature at 12:00 was 34.0 C.\nAnswer with exactly one label on the first line: Support, Refute, or NEI.\nIf the label is Support or Refute, quote the exact sentence from the provided files on the next line.",
+  "answer": "Support\n\"2026-01-01T12:00:00Z,TEMP,34.0,C,GOOD\" [证据: instrument-export-RUN-SYN-07.csv#1]\n\n说明：该行是仪器导出记录中的测量值（记录值），参数 TEMP、单位 C、质量 GOOD，与所述 12:00 的 34.0 C 一致。推断：该读数超出 SOP 中 TEMP 上限 30 C，按 SOP 属于越窗情形，但本节仅就声明本身作判定；SOP 中 TEMP 上下限来自 [证据: sop-fermentation-v1.md#1]。",
+  "completed": true,
+  "turn_status": "answered",
+  "requested_model": "deepseek-flash",
+  "effective_model": "deepseek-flash",
+  "limits": {
+    "wall_clock_ms": 120000,
+    "tool_calls": 40
+  },
+  "model_calls": 1,
+  "model_turns": 1,
+  "tool_calls": 0,
+  "tool_trace": [],
+  "tool_activity": [],
+  "tokens": {
+    "input": 6291,
+    "output": 400,
+    "total": 6691
+  },
+  "started_at": "2026-09-24T09:15:57.353Z",
+  "finished_at": "2026-09-24T09:16:06.329Z",
+  "wall_clock_ms": 8978.925646999996
+}

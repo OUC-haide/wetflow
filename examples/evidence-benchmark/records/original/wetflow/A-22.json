@@ -1,0 +1,27 @@
+{
+  "task": "A-22",
+  "arm": "native",
+  "prompt": "Using only the provided files, judge the claim below about RUN-SYN-07.\nClaim: RUN-SYN-07 reached a final biomass concentration of 12 g/L.\nAnswer with exactly one label on the first line: Support, Refute, or NEI.\nIf the label is Support or Refute, quote the exact sentence from the provided files on the next line.",
+  "answer": "NEI\n\n提供的文件中没有 RUN-SYN-07 生物量（biomass）浓度的任何记录。该批次记录只有 PMA 效价：`- 72 h: PMA titer reached 21.4 g/L (HPLC, single injection, no replicate recorded)` [证据: batch-record-RUN-SYN-07.md#1]。仪器导出中只有 TEMP、PH、DO 三项，也不含生物量 [证据: instrument-export-RUN-SYN-07.csv#1]。因此“终止生物量 12 g/L”既不被支持也无法被反驳，属无法从现有证据确定（NEI）；且按规则，NEI 不附引文行。",
+  "completed": true,
+  "turn_status": "answered",
+  "requested_model": "deepseek-flash",
+  "effective_model": "deepseek-flash",
+  "limits": {
+    "wall_clock_ms": 120000,
+    "tool_calls": 40
+  },
+  "model_calls": 1,
+  "model_turns": 1,
+  "tool_calls": 0,
+  "tool_trace": [],
+  "tool_activity": [],
+  "tokens": {
+    "input": 6292,
+    "output": 202,
+    "total": 6494
+  },
+  "started_at": "2026-09-24T09:17:44.199Z",
+  "finished_at": "2026-09-24T09:17:53.097Z",
+  "wall_clock_ms": 8900.877980999998
+}

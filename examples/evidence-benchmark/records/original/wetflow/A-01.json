@@ -1,0 +1,27 @@
+{
+  "task": "A-01",
+  "arm": "native",
+  "prompt": "Using only the provided files, judge the claim below about RUN-SYN-07.\nClaim: The regulator raised the titer on xylose to 56.75 g/L.\nAnswer with exactly one label on the first line: Support, Refute, or NEI.\nIf the label is Support or Refute, quote the exact sentence from the provided files on the next line.",
+  "answer": "Refute\n\"- 72 h: PMA titer reached 21.4 g/L (HPLC, single injection, no replicate recorded)\" [证据: batch-record-RUN-SYN-07.md#1]\n\n说明（推断）：RUN-SYN-07 的记录值中滴度为 21.4 g/L，与声称的 56.75 g/L 不符。56.75 g/L 只出现在另一份资料中：“Overexpressing the xylose regulator raised the titer to 56.75 g/L on xylose as the sole carbon source, which is comparable to growth on glucose.” [证据: paper-excerpt-syn.md#1] —— 该片段未提及 RUN-SYN-07，且描述的是以木糖为唯一碳源的条件，而 RUN-SYN-07 为葡萄糖 60 g/L + 木糖 40 g/L 的混合糖培养基 [证据: batch-record-RUN-SYN-07.md#1]，因此该数值无法归到 RUN-SYN-07 上。",
+  "completed": true,
+  "turn_status": "answered",
+  "requested_model": "deepseek-flash",
+  "effective_model": "deepseek-flash",
+  "limits": {
+    "wall_clock_ms": 120000,
+    "tool_calls": 40
+  },
+  "model_calls": 1,
+  "model_turns": 1,
+  "tool_calls": 0,
+  "tool_trace": [],
+  "tool_activity": [],
+  "tokens": {
+    "input": 6293,
+    "output": 811,
+    "total": 7104
+  },
+  "started_at": "2026-09-24T09:16:29.617Z",
+  "finished_at": "2026-09-24T09:15:34.729Z",
+  "wall_clock_ms": 12248.516703999994
+}

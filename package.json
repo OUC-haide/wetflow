@@ -27,8 +27,12 @@
   "files": [
     "dist",
     "src",
+    "scripts",
+    "examples",
+    "docs",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "package-lock.json"
   ],
   "scripts": {
     "dev": "concurrently -k -n api,web -c cyan,green \"npm:dev:server\" \"npm:dev:web\"",
@@ -46,12 +50,13 @@
     "demo:plugins": "tsx scripts/plugin-lifecycle-demo.ts",
     "demo:feeds": "tsx scripts/feed-comparison-demo.ts",
     "demo:design": "tsx scripts/design-validation-cases.ts",
-    "demo:education": "tsx scripts/education-demo.ts"
+    "demo:education": "tsx scripts/education-demo.ts",
+    "demo:benchmark": "python3 examples/evidence-benchmark/score.py"
   },
   "engines": {
     "node": ">=22.19"
   },
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "Apache-2.0",
   "dependencies": {
     "@fastify/static": "^10.1.3",
     "cordis": "4.0.0-rc.8",

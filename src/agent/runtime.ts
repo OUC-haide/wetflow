@@ -565,6 +565,7 @@ function normalizeToolCalls(turn: ModelTurn): ModelToolCall[] {
 
 const DOCUMENT_TEXT_FIELDS = new Set(['text', 'abstract', 'snippet', 'evidencequote', 'quote', 'body', 'fulltext', 'content'])
 const DOCUMENT_TOOL_BLOCKLIST = new Set([
+  'education_search_cases', 'education_make_brief',
   'evidence_search','research_fetch_source', 'research_source_read', 'research_records', 'research_query', 'research_record_add'])
 
 function documentConsentForTool(allowed: boolean, name: string): boolean {

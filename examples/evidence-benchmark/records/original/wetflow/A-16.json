@@ -1,0 +1,27 @@
+{
+  "task": "A-16",
+  "arm": "native",
+  "prompt": "Using only the provided files, judge the claim below about RUN-SYN-07.\nClaim: The temperature reading at 12:00 was 25.3 C.\nAnswer with exactly one label on the first line: Support, Refute, or NEI.\nIf the label is Support or Refute, quote the exact sentence from the provided files on the next line.",
+  "answer": "Refute\n`2026-01-01T12:00:00Z,TEMP,34.0,C,GOOD` [证据: instrument-export-RUN-SYN-07.csv#1]\n\n说明：记录值显示 12:00 的 TEMP 为 34.0 C；25.3 C 出现在 06:00 的那条记录，因此该断言与文件不符。",
+  "completed": true,
+  "turn_status": "answered",
+  "requested_model": "deepseek-flash",
+  "effective_model": "deepseek-flash",
+  "limits": {
+    "wall_clock_ms": 120000,
+    "tool_calls": 40
+  },
+  "model_calls": 1,
+  "model_turns": 1,
+  "tool_calls": 0,
+  "tool_trace": [],
+  "tool_activity": [],
+  "tokens": {
+    "input": 6291,
+    "output": 191,
+    "total": 6482
+  },
+  "started_at": "2026-09-24T09:16:17.842Z",
+  "finished_at": "2026-09-24T09:16:26.647Z",
+  "wall_clock_ms": 8806.11230800001
+}

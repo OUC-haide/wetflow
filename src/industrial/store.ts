@@ -1,3 +1,4 @@
+import { resolveMeasurementUnit } from './measurement.js'
 import { createHash } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
@@ -390,7 +391,7 @@ export class IndustrialStore {
       workflowRunId,
       parameterKey,
       value,
-      unit: text(input.unit ?? parameter?.unit ?? '', '单位', 40, false),
+      unit: parameter ? resolveMeasurementUnit(parameter, input.unit) : text(input.unit ?? '', '单位', 40, false),
       quality: oneOf(TELEMETRY_QUALITIES, input.quality ?? 'GOOD', '数据质量'),
       recordedAt: optionalIso(input.recordedAt, '记录时间') ?? now(),
       receivedAt: now(),

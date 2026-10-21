@@ -1,0 +1,482 @@
+[
+  {
+    "id": "A-01",
+    "claim": "The regulator raised the titer on xylose to 56.75 g/L.",
+    "expectedLabel": "SUPPORT",
+    "corpus": [
+      "corpus/batch-record-RUN-SYN-07.md",
+      "corpus/instrument-export-RUN-SYN-07.csv",
+      "corpus/paper-excerpt-syn.md",
+      "corpus/sop-fermentation-v1.md"
+    ],
+    "clarified": false,
+    "records": {
+      "wetflow": "records/original/wetflow/A-01.json",
+      "opencode": "records/original/opencode/A-01.json"
+    }
+  },
+  {
+    "id": "A-02",
+    "claim": "Overexpression performed as well on xylose as on glucose.",
+    "expectedLabel": "SUPPORT",
+    "corpus": [
+      "corpus/batch-record-RUN-SYN-07.md",
+      "corpus/instrument-export-RUN-SYN-07.csv",
+      "corpus/paper-excerpt-syn.md",
+      "corpus/sop-fermentation-v1.md"
+    ],
+    "clarified": true,
+    "records": {
+      "wetflow": "records/clarified/wetflow/A-02.json",
+      "opencode": "records/clarified/opencode/A-02.json"
+    }
+  },
+  {
+    "id": "A-03",
+    "claim": "Deleting the regulator halved xylose consumption.",
+    "expectedLabel": "SUPPORT",
+    "corpus": [
+      "corpus/batch-record-RUN-SYN-07.md",
+      "corpus/instrument-export-RUN-SYN-07.csv",
+      "corpus/paper-excerpt-syn.md",
+      "corpus/sop-fermentation-v1.md"
+    ],
+    "clarified": true,
+    "records": {
+      "wetflow": "records/clarified/wetflow/A-03.json",
+      "opencode": "records/clarified/opencode/A-03.json"
+    }
+  },
+  {
+    "id": "A-04",
+    "claim": "The study measured a 50 % drop in xylose consumption after deletion.",
+    "expectedLabel": "SUPPORT",
+    "corpus": [
+      "corpus/batch-record-RUN-SYN-07.md",
+      "corpus/instrument-export-RUN-SYN-07.csv",
+      "corpus/paper-excerpt-syn.md",
+      "corpus/sop-fermentation-v1.md"
+    ],
+    "clarified": false,
+    "records": {
+      "wetflow": "records/original/wetflow/A-04.json",
+      "opencode": "records/original/opencode/A-04.json"
+    }
+  },
+  {
+    "id": "A-05",
+    "claim": "RUN-SYN-07 reached a PMA titer of 21.4 g/L.",
+    "expectedLabel": "SUPPORT",
+    "corpus": [
+      "corpus/batch-record-RUN-SYN-07.md",
+      "corpus/instrument-export-RUN-SYN-07.csv",
+      "corpus/paper-excerpt-syn.md",
+      "corpus/sop-fermentation-v1.md"
+    ],
+    "clarified": false,
+    "records": {
+      "wetflow": "records/original/wetflow/A-05.json",
+      "opencode": "records/original/opencode/A-05.json"
+    }
+  },
+  {
+    "id": "A-06",
+    "claim": "The 21.4 g/L value came from a single injection without replicates.",
+    "expectedLabel": "SUPPORT",
+    "corpus": [
+      "corpus/batch-record-RUN-SYN-07.md",
+      "corpus/instrument-export-RUN-SYN-07.csv",
+      "corpus/paper-excerpt-syn.md",
+      "corpus/sop-fermentation-v1.md"
+    ],
+    "clarified": false,
+    "records": {
+      "wetflow": "records/original/wetflow/A-06.json",
+      "opencode": "records/original/opencode/A-06.json"
+    }
+  },
+  {
+    "id": "A-07",
+    "claim": "Glucose was depleted by 24 h in RUN-SYN-07.",
+    "expectedLabel": "SUPPORT",
+    "corpus": [
+      "corpus/batch-record-RUN-SYN-07.md",
+      "corpus/instrument-export-RUN-SYN-07.csv",
+      "corpus/paper-excerpt-syn.md",
+      "corpus/sop-fermentation-v1.md"
+    ],
+    "clarified": false,
+    "records": {
+      "wetflow": "records/original/wetflow/A-07.json",
+      "opencode": "records/original/opencode/A-07.json"
+    }
+  },
+  {
+    "id": "A-08",
+    "claim": "The seed stage must come before fermentation.",
+    "expectedLabel": "SUPPORT",
+    "corpus": [
+      "corpus/batch-record-RUN-SYN-07.md",
+      "corpus/instrument-export-RUN-SYN-07.csv",
+      "corpus/paper-excerpt-syn.md",
+      "corpus/sop-fermentation-v1.md"
+    ],
+    "clarified": false,
+    "records": {
+      "wetflow": "records/original/wetflow/A-08.json",
+      "opencode": "records/original/opencode/A-08.json"
+    }
+  },
+  {
+    "id": "A-09",
+    "claim": "A reading outside a parameter window must open a deviation.",
+    "expectedLabel": "SUPPORT",
+    "corpus": [
+      "corpus/batch-record-RUN-SYN-07.md",
+      "corpus/instrument-export-RUN-SYN-07.csv",
+      "corpus/paper-excerpt-syn.md",
+      "corpus/sop-fermentation-v1.md"
+    ],
+    "clarified": false,
+    "records": {
+      "wetflow": "records/original/wetflow/A-09.json",
+      "opencode": "records/original/opencode/A-09.json"
+    }
+  },
+  {
+    "id": "A-10",
+    "claim": "The measured temperature at 12:00 was 34.0 C.",
+    "expectedLabel": "SUPPORT",
+    "corpus": [
+      "corpus/batch-record-RUN-SYN-07.md",
+      "corpus/instrument-export-RUN-SYN-07.csv",
+      "corpus/paper-excerpt-syn.md",
+      "corpus/sop-fermentation-v1.md"
+    ],
+    "clarified": false,
+    "records": {
+      "wetflow": "records/original/wetflow/A-10.json",
+      "opencode": "records/original/opencode/A-10.json"
+    }
+  },
+  {
+    "id": "A-11",
+    "claim": "Overexpression lowered the titer below 30 g/L.",
+    "expectedLabel": "REFUTE",
+    "corpus": [
+      "corpus/batch-record-RUN-SYN-07.md",
+      "corpus/instrument-export-RUN-SYN-07.csv",
+      "corpus/paper-excerpt-syn.md",
+      "corpus/sop-fermentation-v1.md"
+    ],
+    "clarified": false,
+    "records": {
+      "wetflow": "records/original/wetflow/A-11.json",
+      "opencode": "records/original/opencode/A-11.json"
+    }
+  },
+  {
+    "id": "A-12",
+    "claim": "Deleting the regulator doubled xylose consumption.",
+    "expectedLabel": "REFUTE",
+    "corpus": [
+      "corpus/batch-record-RUN-SYN-07.md",
+      "corpus/instrument-export-RUN-SYN-07.csv",
+      "corpus/paper-excerpt-syn.md",
+      "corpus/sop-fermentation-v1.md"
+    ],
+    "clarified": false,
+    "records": {
+      "wetflow": "records/original/wetflow/A-12.json",
+      "opencode": "records/original/opencode/A-12.json"
+    }
+  },
+  {
+    "id": "A-13",
+    "claim": "Xylose performed far worse than glucose in the study.",
+    "expectedLabel": "REFUTE",
+    "corpus": [
+      "corpus/batch-record-RUN-SYN-07.md",
+      "corpus/instrument-export-RUN-SYN-07.csv",
+      "corpus/paper-excerpt-syn.md",
+      "corpus/sop-fermentation-v1.md"
+    ],
+    "clarified": true,
+    "records": {
+      "wetflow": "records/clarified/wetflow/A-13.json",
+      "opencode": "records/clarified/opencode/A-13.json"
+    }
+  },
+  {
+    "id": "A-14",
+    "claim": "RUN-SYN-07 reached 42.8 g/L of PMA.",
+    "expectedLabel": "REFUTE",
+    "corpus": [
+      "corpus/batch-record-RUN-SYN-07.md",
+      "corpus/instrument-export-RUN-SYN-07.csv",
+      "corpus/paper-excerpt-syn.md",
+      "corpus/sop-fermentation-v1.md"
+    ],
+    "clarified": false,
+    "records": {
+      "wetflow": "records/original/wetflow/A-14.json",
+      "opencode": "records/original/opencode/A-14.json"
+    }
+  },
+  {
+    "id": "A-15",
+    "claim": "Glucose was still present at 24 h in RUN-SYN-07.",
+    "expectedLabel": "REFUTE",
+    "corpus": [
+      "corpus/batch-record-RUN-SYN-07.md",
+      "corpus/instrument-export-RUN-SYN-07.csv",
+      "corpus/paper-excerpt-syn.md",
+      "corpus/sop-fermentation-v1.md"
+    ],
+    "clarified": false,
+    "records": {
+      "wetflow": "records/original/wetflow/A-15.json",
+      "opencode": "records/original/opencode/A-15.json"
+    }
+  },
+  {
+    "id": "A-16",
+    "claim": "The temperature reading at 12:00 was 25.3 C.",
+    "expectedLabel": "REFUTE",
+    "corpus": [
+      "corpus/batch-record-RUN-SYN-07.md",
+      "corpus/instrument-export-RUN-SYN-07.csv",
+      "corpus/paper-excerpt-syn.md",
+      "corpus/sop-fermentation-v1.md"
+    ],
+    "clarified": false,
+    "records": {
+      "wetflow": "records/original/wetflow/A-16.json",
+      "opencode": "records/original/opencode/A-16.json"
+    }
+  },
+  {
+    "id": "A-17",
+    "claim": "Fermentation may start before seed preparation is complete.",
+    "expectedLabel": "REFUTE",
+    "corpus": [
+      "corpus/batch-record-RUN-SYN-07.md",
+      "corpus/instrument-export-RUN-SYN-07.csv",
+      "corpus/paper-excerpt-syn.md",
+      "corpus/sop-fermentation-v1.md"
+    ],
+    "clarified": false,
+    "records": {
+      "wetflow": "records/original/wetflow/A-17.json",
+      "opencode": "records/original/opencode/A-17.json"
+    }
+  },
+  {
+    "id": "A-18",
+    "claim": "An out-of-window reading may be accepted without a deviation.",
+    "expectedLabel": "REFUTE",
+    "corpus": [
+      "corpus/batch-record-RUN-SYN-07.md",
+      "corpus/instrument-export-RUN-SYN-07.csv",
+      "corpus/paper-excerpt-syn.md",
+      "corpus/sop-fermentation-v1.md"
+    ],
+    "clarified": false,
+    "records": {
+      "wetflow": "records/original/wetflow/A-18.json",
+      "opencode": "records/original/opencode/A-18.json"
+    }
+  },
+  {
+    "id": "A-19",
+    "claim": "The study reported a titer above 100 g/L.",
+    "expectedLabel": "REFUTE",
+    "corpus": [
+      "corpus/batch-record-RUN-SYN-07.md",
+      "corpus/instrument-export-RUN-SYN-07.csv",
+      "corpus/paper-excerpt-syn.md",
+      "corpus/sop-fermentation-v1.md"
+    ],
+    "clarified": false,
+    "records": {
+      "wetflow": "records/original/wetflow/A-19.json",
+      "opencode": "records/original/opencode/A-19.json"
+    }
+  },
+  {
+    "id": "A-20",
+    "claim": "The 21.4 g/L value came from three biological replicates.",
+    "expectedLabel": "REFUTE",
+    "corpus": [
+      "corpus/batch-record-RUN-SYN-07.md",
+      "corpus/instrument-export-RUN-SYN-07.csv",
+      "corpus/paper-excerpt-syn.md",
+      "corpus/sop-fermentation-v1.md"
+    ],
+    "clarified": false,
+    "records": {
+      "wetflow": "records/original/wetflow/A-20.json",
+      "opencode": "records/original/opencode/A-20.json"
+    }
+  },
+  {
+    "id": "A-21",
+    "claim": "The regulator raised the titer on wheat-straw hydrolysate.",
+    "expectedLabel": "NEI",
+    "corpus": [
+      "corpus/batch-record-RUN-SYN-07.md",
+      "corpus/instrument-export-RUN-SYN-07.csv",
+      "corpus/paper-excerpt-syn.md",
+      "corpus/sop-fermentation-v1.md"
+    ],
+    "clarified": false,
+    "records": {
+      "wetflow": "records/original/wetflow/A-21.json",
+      "opencode": "records/original/opencode/A-21.json"
+    }
+  },
+  {
+    "id": "A-22",
+    "claim": "RUN-SYN-07 reached a final biomass concentration of 12 g/L.",
+    "expectedLabel": "NEI",
+    "corpus": [
+      "corpus/batch-record-RUN-SYN-07.md",
+      "corpus/instrument-export-RUN-SYN-07.csv",
+      "corpus/paper-excerpt-syn.md",
+      "corpus/sop-fermentation-v1.md"
+    ],
+    "clarified": false,
+    "records": {
+      "wetflow": "records/original/wetflow/A-22.json",
+      "opencode": "records/original/opencode/A-22.json"
+    }
+  },
+  {
+    "id": "A-23",
+    "claim": "The strain grows faster at 30 C than at 25 C.",
+    "expectedLabel": "NEI",
+    "corpus": [
+      "corpus/batch-record-RUN-SYN-07.md",
+      "corpus/instrument-export-RUN-SYN-07.csv",
+      "corpus/paper-excerpt-syn.md",
+      "corpus/sop-fermentation-v1.md"
+    ],
+    "clarified": false,
+    "records": {
+      "wetflow": "records/original/wetflow/A-23.json",
+      "opencode": "records/original/opencode/A-23.json"
+    }
+  },
+  {
+    "id": "A-24",
+    "claim": "The 21.4 g/L measurement was confirmed by a second method.",
+    "expectedLabel": "NEI",
+    "corpus": [
+      "corpus/batch-record-RUN-SYN-07.md",
+      "corpus/instrument-export-RUN-SYN-07.csv",
+      "corpus/paper-excerpt-syn.md",
+      "corpus/sop-fermentation-v1.md"
+    ],
+    "clarified": false,
+    "records": {
+      "wetflow": "records/original/wetflow/A-24.json",
+      "opencode": "records/original/opencode/A-24.json"
+    }
+  },
+  {
+    "id": "A-25",
+    "claim": "Overexpression reduced byproduct formation.",
+    "expectedLabel": "NEI",
+    "corpus": [
+      "corpus/batch-record-RUN-SYN-07.md",
+      "corpus/instrument-export-RUN-SYN-07.csv",
+      "corpus/paper-excerpt-syn.md",
+      "corpus/sop-fermentation-v1.md"
+    ],
+    "clarified": false,
+    "records": {
+      "wetflow": "records/original/wetflow/A-25.json",
+      "opencode": "records/original/opencode/A-25.json"
+    }
+  },
+  {
+    "id": "A-26",
+    "claim": "The regulator binds the AAAAAA motif more strongly than the CCCCCC motif.",
+    "expectedLabel": "NEI",
+    "corpus": [
+      "corpus/batch-record-RUN-SYN-07.md",
+      "corpus/instrument-export-RUN-SYN-07.csv",
+      "corpus/paper-excerpt-syn.md",
+      "corpus/sop-fermentation-v1.md"
+    ],
+    "clarified": false,
+    "records": {
+      "wetflow": "records/original/wetflow/A-26.json",
+      "opencode": "records/original/opencode/A-26.json"
+    }
+  },
+  {
+    "id": "A-27",
+    "claim": "PH was controlled at 5.5 throughout RUN-SYN-07.",
+    "expectedLabel": "NEI",
+    "corpus": [
+      "corpus/batch-record-RUN-SYN-07.md",
+      "corpus/instrument-export-RUN-SYN-07.csv",
+      "corpus/paper-excerpt-syn.md",
+      "corpus/sop-fermentation-v1.md"
+    ],
+    "clarified": false,
+    "records": {
+      "wetflow": "records/original/wetflow/A-27.json",
+      "opencode": "records/original/opencode/A-27.json"
+    }
+  },
+  {
+    "id": "A-28",
+    "claim": "The seed culture reached an OD600 of 6 before inoculation.",
+    "expectedLabel": "NEI",
+    "corpus": [
+      "corpus/batch-record-RUN-SYN-07.md",
+      "corpus/instrument-export-RUN-SYN-07.csv",
+      "corpus/paper-excerpt-syn.md",
+      "corpus/sop-fermentation-v1.md"
+    ],
+    "clarified": false,
+    "records": {
+      "wetflow": "records/original/wetflow/A-28.json",
+      "opencode": "records/original/opencode/A-28.json"
+    }
+  },
+  {
+    "id": "A-29",
+    "claim": "The study used a fed-batch process.",
+    "expectedLabel": "NEI",
+    "corpus": [
+      "corpus/batch-record-RUN-SYN-07.md",
+      "corpus/instrument-export-RUN-SYN-07.csv",
+      "corpus/paper-excerpt-syn.md",
+      "corpus/sop-fermentation-v1.md"
+    ],
+    "clarified": false,
+    "records": {
+      "wetflow": "records/original/wetflow/A-29.json",
+      "opencode": "records/original/opencode/A-29.json"
+    }
+  },
+  {
+    "id": "A-30",
+    "claim": "The project strain carries the same regulator sequence as the reference strain.",
+    "expectedLabel": "NEI",
+    "corpus": [
+      "corpus/batch-record-RUN-SYN-07.md",
+      "corpus/instrument-export-RUN-SYN-07.csv",
+      "corpus/paper-excerpt-syn.md",
+      "corpus/sop-fermentation-v1.md"
+    ],
+    "clarified": false,
+    "records": {
+      "wetflow": "records/original/wetflow/A-30.json",
+      "opencode": "records/original/opencode/A-30.json"
+    }
+  }
+]

@@ -1,12 +1,13 @@
 #!/usr/bin/env node
-import { chmodSync, createReadStream, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { chmodSync, createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Fastify from 'fastify'
 import type { FastifyReply } from 'fastify'
 import fastifyStatic from '@fastify/static'
 import { createWetFlowContext } from './cordis.js'
-import { createWetFlowPlugins, PLUGIN_IDS, type PluginId } from './plugins/index.js'
+import { educationSourcesDirectory } from './plugins/assets.js'
+import { createWetFlowPlugins, PLUGIN_IDS, MANAGED_PLUGIN_IDS, type PluginId } from './plugins/index.js'
 import type { AgentEvent } from './core/types.js'
 import type { ReasoningEffort } from './agent/provider.js'
 import { OpenAICompatibleProvider } from './agent/provider.js'
@@ -238,7 +239,7 @@ export async function createServer(options: ServerOptions = {}) {
   app.get('/api/plugins', async () => plugins.snapshot())
   app.post<{ Params: { id: string; action: string } }>('/api/plugins/:id/:action', async (request, reply) => {
     const { id, action } = request.params
-    if (!PLUGIN_IDS.includes(id as PluginId) || !['load', 'unload'].includes(action)) return reply.code(404).send({ error: 'Unknown plugin or action' })
+    if (!MANAGED_PLUGIN_IDS.includes(id as PluginId) || !['load', 'unload'].includes(action)) return reply.code(404).send({ error: 'Unknown plugin or action' })
     if (agent.snapshot().agentState === 'THINKING') return reply.code(409).send({ error: 'Wait for the current Agent turn to finish' })
     try {
       const result = await plugins[action as 'load' | 'unload'](id as PluginId)
@@ -247,7 +248,26 @@ export async function createServer(options: ServerOptions = {}) {
     }
     catch (error) { return reply.code(400).send({ error: error instanceof Error ? error.message : String(error) }) }
   })
-  app.get('/api/plugins/modeling-probe', async (_request, reply) => {
+  app.get<{ Params: { id: string } }>('/api/plugins/:id/probe', async (request, reply) => {
+    const name = request.params.id === 'feed-comparison' ? 'md_compare_feeds'
+      : request.params.id === 'education' ? 'education_search_cases' : undefined
+    if (!name) return reply.code(404).send({ error: 'Unknown example probe' })
+    if (!agent.tools.list().some(tool => tool.name === name)) return reply.code(409).send({ error: 'Load the extension and its dependencies first.' })
+    try { return { tool: name, result: await agent.tools.get(name).execute(name === 'md_compare_feeds' ? { baselineFeed: 1, comparisonFeed: 1.25 } : { query: 'DNA', audience: 'primary' }) } }
+    catch (error) { return reply.code(400).send({ error: error instanceof Error ? error.message : String(error) }) }
+  })
+  app.post('/api/plugins/education/import-examples', async (_request, reply) => {
+    if (!ctx.wetflowEducation || !ctx.wetflowEvidence) return reply.code(409).send({ error: 'Load Evidence and Education before importing the example sources.' })
+    if (agent.snapshot().agentState === 'THINKING') return reply.code(409).send({ error: 'Wait for the current Agent turn to finish' })
+    const folder = educationSourcesDirectory()
+    const existing = new Set(ctx.wetflowEvidence.sources().map(source => source.name))
+    let imported = 0
+    for (const name of readdirSync(folder).filter(name => name.endsWith('.md')).sort()) {
+      if (!existing.has(name)) { ctx.wetflowEvidence.add(name, readFileSync(join(folder, name), 'utf8'), 'text/markdown'); imported++ }
+    }
+    return { imported, runId: agent.store.activeWorkflowRunId() }
+  })
+  app.get('/api/plugins/modeling-probe' , async (_request, reply) => {
     try {
       return { tool: 'modeling_methods', result: await agent.tools.get('modeling_methods').execute({}) }
     } catch (error) { return reply.code(409).send({ tool: 'modeling_methods', available: false, error: error instanceof Error ? error.message : String(error) }) }
