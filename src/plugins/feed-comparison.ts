@@ -51,7 +51,8 @@ export function createFeedComparisonTool(config: Config): ToolDefinition<Record<
   }
 }
 export function apply(ctx: WetFlowContext, config: Config): void {
-  compareFeeds(JSON.parse(readFileSync(config.summaryPath, 'utf8')), {})
+  const data = summary.parse(JSON.parse(readFileSync(config.summaryPath, 'utf8')))
+  compareFeeds(data, { baselineFeed: data.rows[0]!.feed_ratio, comparisonFeed: data.rows[1]!.feed_ratio })
   ctx.reflect.provide('wetflowFeedComparison', { summaryPath: config.summaryPath })
   ctx.effect(() => ctx.wetflow.tools.mount('feed-comparison', registry => registry.register(createFeedComparisonTool(config))), 'Feed-comparison tool registration')
 }
