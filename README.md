@@ -34,6 +34,6 @@ The benchmark re-scores retained historical outputs for 30 synthetic claims: 27 
 
 ## AI use
 
-The recorded model-assisted examples and evidence benchmark used DeepSeek Flash (API model identifier: `deepseek-flash`). The included project documents, attributed education sources and synthetic benchmark corpus are used as task inputs. Model answers and generated plans require researcher or educator review; the benchmark is a small development test and does not establish performance across other projects. GPT6 Astra assisted with code writing during development.
+The recorded model-assisted examples and evidence benchmark used DeepSeek Flash (API model identifier: `deepseek-flash`). The included project documents, attributed education sources and synthetic benchmark corpus are used as task inputs. Model answers and generated plans require researcher or educator review; the benchmark is a small development test and does not establish performance across other projects. GPT6 Astra and GPT 6.1sol assisted with code writing during development.
 
 `npm test` runs the tests. Code is licensed under [Apache-2.0](LICENSE); attributed third-party materials retain their own terms.
