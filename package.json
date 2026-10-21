@@ -29,7 +29,6 @@
     "src",
     "scripts",
     "examples",
-    "docs",
     "README.md",
     "LICENSE",
     "package-lock.json"

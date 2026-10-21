@@ -1,10 +1,6 @@
 # WetFlow
 
-WetFlow is a Cordis-based research workbench for project documents, scientific tools, measurement records and researcher-approved workflow transitions. It was developed for the team's PMA–dopamine adhesive project and also supports Education planning through an optional extension.
-
-## Start
-
-Use Node.js 22.19 or newer, npm and Python 3 available as `python3` (or configure `PYTHON_EXECUTABLE`). From this directory:
+Requires Node.js ≥22.19, npm and Python 3 (`python3`, or set `PYTHON_EXECUTABLE`).
 
 ```sh
 npm ci
@@ -12,32 +8,13 @@ npm run build
 npm start
 ```
 
-Open http://127.0.0.1:4310. Configure an OpenAI-compatible model in the workbench, or use the built-in rules without a model API. Model API calls use your configured provider. Automatic sharing of retrieved document text is off by default and can be enabled in model settings. Local settings, databases and generated outputs are excluded from version control.
+Open http://127.0.0.1:4310 and configure the model in Settings. Local settings and data are stored under `.wetflow/` and excluded from Git. Retrieved document text is shared with the model only when enabled in Settings.
 
-## Tools and cases
+The plugin panel manages four core plugins and two optional extensions. Load Feed-comparison to compare saved MD reports. For Education, load Evidence and Education, then import the example sources into the active project. The CLI (`npm run console`) loads Evidence by default.
 
-The web host loads four core plugins: Evidence, Research, Modeling and Experiment. They provide 35 tools, including workflow tools. The plugin workspace also lists two optional extensions:
+Thinking intensity, optional reasoning display and the context budget (up to 1,000,000 tokens) can be changed in the workbench. The budget must fit the selected model's capacity.
 
-| Extension | Operation | Use in the workbench |
-| --- | --- | --- |
-| Feed comparison | `md_compare_feeds` validates and compares saved MD contact reports. It does not start molecular simulations. | Load the extension, then try the saved feed comparison or ask the Agent to compare feed 1.00 and 1.25. |
-| Education | `education_search_cases` and `education_make_brief` reuse project sources, exact citations and the team's WEAVE design cycle. | Load Education while Evidence is available. Import the example sources into the current project, then search DNA cases or request a 30-minute primary-school brief. |
-
-Unloading an extension removes its tools. Education tools also become unavailable when Evidence is unloaded and recover when its service returns. Imported sources remain in their project. The bundled sources and saved report are examples; replace them through the plugin configuration when developing another application.
-
-Project retrieval is scoped to the active run. Measurement writes through Agent tools and HTTP share declared-unit validation; a missing unit uses the parameter's declared unit, while an explicit mismatch is rejected. A correctly dimensioned out-of-range observation remains stored and is flagged as a deviation. Agent writes require explicit user-supplied recording intent, parameter and value. Workflow-stage advancement has a separate approval step.
-
-The CLI (`npm run console`) uses the same Agent implementation with Evidence loaded; its default tool set is smaller than the web host's. Other hosts can register the exported plugins explicitly.
-
-## Thinking and context settings
-
-DeepSeek exposes Off, Low, High and Max thinking intensity. A separate display switch reveals provider-returned reasoning in collapsible sections after a turn completes. The display preference does not change thinking intensity. Saved reasoning is kept apart from the final answer and is not automatically appended to future conversation context. Old reasoning that was never recorded is not reconstructed.
-
-The context panel lets users save a budget from 1,024 to 1,000,000 tokens, with a 128,000-token default. Settings persist in `.wetflow/context-settings.json`. Saved UI settings take precedence over `WETFLOW_CONTEXT_TOKEN_BUDGET`; an explicit server option takes precedence at startup. This is an estimated base-context budget, subject to provider capacity. Tool-call continuations add messages of their own. Original older messages remain available when they fit; extracted memory is used when compaction is needed.
-
-## Reproduce the examples
-
-These commands run without model API calls:
+## Run the examples
 
 ```sh
 npm run demo:plugins
@@ -47,10 +24,8 @@ npm run demo:education
 npm run demo:benchmark
 ```
 
-The first four invoke actual tools and services using included fixtures. The benchmark command re-scores retained historical outputs: WetFlow 28/30 and OpenCode 21/30 on a synthetic development set, assembled from 27 original records and 3 clarified reruns per system. It does not rerun models or evaluate the current release. See [scientific extensions](docs/scientific-extensions.md), [plugin lifecycle](docs/plugin-lifecycle.md) and the [benchmark inputs and records](examples/evidence-benchmark/README.md) for their scope.
+These commands make no model API calls by default. Inputs are under `examples/`; generated tool-demo outputs go to `artifacts/` or `.wetflow/demos/`. Education sources are attributed planning inputs, not evidence of classroom outcomes.
 
-`npm run build` performs TypeScript checking and creates the web and Node bundles. `npm test` runs the repository's regression suite.
+The benchmark re-scores retained historical outputs for 30 synthetic claims: 27 original records plus clarified reruns of A-02, A-03 and A-13 per system. Original and clarified prompts/answers remain in `examples/evidence-benchmark/records/`; all 66 records are retained. It does not rerun models or evaluate this release. The historical systems used different execution paths, and retained records do not establish a matched thinking mode or complete source-version binding.
 
-## License
-
-Team-authored code is licensed under the [Apache License, Version 2.0](LICENSE). Third-party libraries and attributed education materials retain their own terms and credits. The previous noncommercial license is superseded for this release.
+`npm test` runs the tests. Code is licensed under [Apache-2.0](LICENSE); attributed third-party materials retain their own terms.
