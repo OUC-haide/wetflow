@@ -19,6 +19,7 @@ import {
   type WorkflowStageKey,
   type WorkspaceCatalog,
 } from './types.js'
+import { proposedWorkflowStages, workflowPlan, workflowStageLabel } from './workflow.js'
 
 const now = (): string => new Date().toISOString()
 const id = (prefix: string): string => `${prefix}-${crypto.randomUUID().slice(0, 8)}`
@@ -57,6 +58,7 @@ function citationName(value: string): string {
 
 export class WetFlowStore {
   readonly events = new EventEmitter()
+  planningEnabled = false
   private readonly db: DatabaseSync
   private transactionEvents: AgentEvent[] | undefined
 
@@ -69,6 +71,11 @@ export class WetFlowStore {
     this.ensureConversation()
     this.backfillContextOwnership()
     this.seedWelcomeMessage()
+  }
+
+  enableWorkflowPlanning(): void {
+    this.planningEnabled = true
+    this.db.prepare("UPDATE workflow_runs SET plan_json=? WHERE plan_json IS NULL AND current_stage='DRAFT' AND completed_stages='[]'").run(JSON.stringify({ status: 'pending', stages: [] }))
   }
 
   close(): void {
@@ -96,6 +103,9 @@ export class WetFlowStore {
       ...(row.pause_reason ? { pauseReason: String(row.pause_reason) } : {}),
       updatedAt: String(row.updated_at),
       completedStages: JSON.parse(String(row.completed_stages)) as WorkflowStageKey[],
+      plan: row.plan_json ? JSON.parse(String(row.plan_json)) : this.planningEnabled ? workflowPlan({
+        currentStage: String(row.current_stage), completedStages: JSON.parse(String(row.completed_stages)),
+      }) : { status: 'confirmed', stages: WORKFLOW_STAGES.map(stage => ({ ...stage })) },
     }
   }
 
@@ -153,6 +163,7 @@ export class WetFlowStore {
       id: String(row.id), role: String(row.role) as ChatMessage['role'], content: String(row.content),
       createdAt: String(row.created_at), ...(row.approval_id ? { approvalId: String(row.approval_id) } : {}),
       ...(row.reasoning_content ? { reasoningContent: String(row.reasoning_content) } : {}),
+      ...(row.attachments_json ? { attachments: JSON.parse(String(row.attachments_json)) as NonNullable<ChatMessage['attachments']> } : {}),
     }))
   }
 
@@ -162,6 +173,7 @@ export class WetFlowStore {
     return rows.map(row => ({
       id: String(row.id), role: String(row.role) as ChatMessage['role'], content: String(row.content),
       createdAt: String(row.created_at), ...(row.approval_id ? { approvalId: String(row.approval_id) } : {}),
+      ...(row.attachments_json ? { attachments: JSON.parse(String(row.attachments_json)) as NonNullable<ChatMessage['attachments']> } : {}),
     }))
   }
 
@@ -197,6 +209,7 @@ export class WetFlowStore {
       projectId: String(row.project_id),
       name: String(row.name),
       currentStage: String(row.current_stage) as WorkflowRunSummary['currentStage'],
+      currentStageLabel: workflowStageLabel(this.workflowForRun(String(row.id))),
       status: String(row.status) as WorkflowRunSummary['status'],
       updatedAt: String(row.updated_at),
     }))
@@ -405,13 +418,15 @@ export class WetFlowStore {
     if (!project) throw new Error('项目不存在。')
     const createdAt = now()
     const run: WorkflowRunSummary = {
-      id: id('run'), projectId, name: normalized, currentStage: 'DRAFT', status: 'RUNNING', updatedAt: createdAt,
+      id: id('run'), projectId, name: normalized, currentStage: 'DRAFT', currentStageLabel: this.planningEnabled ? '待定' : '草稿', status: 'RUNNING', updatedAt: createdAt,
     }
     this.transaction(() => {
       this.db.prepare(`INSERT INTO workflow_runs
         (id, project_id, name, project, current_stage, status, wake_at, pause_reason, completed_stages, updated_at, revision)
         VALUES (?, ?, ?, ?, 'DRAFT', 'RUNNING', NULL, NULL, '[]', ?, 0)`)
         .run(run.id, projectId, run.name, project.name, createdAt)
+      const plan = this.planningEnabled ? { status: 'pending', stages: [] } : { status: 'confirmed', stages: WORKFLOW_STAGES.map(stage => ({ ...stage })) }
+      this.db.prepare('UPDATE workflow_runs SET plan_json=? WHERE id=?').run(JSON.stringify(plan), run.id)
       this.db.prepare('UPDATE projects SET updated_at = ? WHERE id = ?').run(createdAt, projectId)
       this.setActiveWorkflowRun(run.id)
       this.ensureConversation()
@@ -460,13 +475,14 @@ export class WetFlowStore {
     }))
   }
 
-  addMessage(role: ChatMessage['role'], content: string, approvalId?: string, reasoningContent?: string): ChatMessage {
+  addMessage(role: ChatMessage['role'], content: string, approvalId?: string, reasoningContent?: string, attachments?: ChatMessage['attachments']): ChatMessage {
     const message: ChatMessage = { id: id('msg'), role, content, createdAt: now(), ...(approvalId ? { approvalId } : {}),
       ...(role === 'assistant' && reasoningContent?.trim() ? { reasoningContent } : {}),
+      ...(role === 'user' && attachments?.length ? { attachments } : {}),
     }
     const conversationId = this.activeConversationId()
-    this.db.prepare('INSERT INTO messages (id, role, content, approval_id, created_at, conversation_id, reasoning_content) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .run(message.id, role, content, approvalId ?? null, message.createdAt, conversationId, message.reasoningContent ?? null)
+    this.db.prepare('INSERT INTO messages (id, role, content, approval_id, created_at, conversation_id, reasoning_content, attachments_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(message.id, role, content, approvalId ?? null, message.createdAt, conversationId, message.reasoningContent ?? null, message.attachments ? JSON.stringify(message.attachments) : null)
     const conversation = this.db.prepare('SELECT title FROM conversations WHERE id = ?').get(conversationId) as { title: string }
     const title = role === 'user' && (conversation.title === '新对话' || conversation.title === '当前对话')
       ? content.replace(/\s+/g, ' ').trim().slice(0, 28) || conversation.title
@@ -610,13 +626,31 @@ export class WetFlowStore {
 
   advance(stage: WorkflowStageKey): WorkflowSnapshot {
     const current = this.workflow()
-    const fromIndex = WORKFLOW_STAGES.findIndex(item => item.key === current.currentStage)
-    const toIndex = WORKFLOW_STAGES.findIndex(item => item.key === stage)
-    if (toIndex !== fromIndex + 1) throw new Error(`只能从 ${current.currentStage} 前进到下一阶段。`)
+    const plan = workflowPlan(current)
+    if (plan.status === 'pending') throw new Error('流程仍待定，请先与 Agent 商讨阶段并确认流程提案。')
+    const fromIndex = plan.stages.findIndex(item => item.key === current.currentStage)
+    const toIndex = plan.stages.findIndex(item => item.key === stage)
+    if (fromIndex < 0 || toIndex !== fromIndex + 1) throw new Error(`只能从 ${current.currentStage} 前进到下一阶段。`)
     const completedStages = [...current.completedStages, current.currentStage]
     const workflow = this.setWorkflow({ currentStage: stage, completedStages, status: stage === 'CLOSED' ? 'COMPLETED' : 'RUNNING' })
     this.addActivity('workflow', '工作流前进', `${current.currentStage} → ${stage}`)
     return workflow
+  }
+
+  confirmWorkflowPlan(input: unknown): WorkflowSnapshot {
+    return this.transaction(() => {
+      const current = this.workflow()
+      const stages = proposedWorkflowStages(input, current)
+      const pending = workflowPlan(current).status === 'pending'
+      const plan = { status: 'confirmed', stages }
+      this.db.prepare('UPDATE workflow_runs SET plan_json = ? WHERE id = ?').run(JSON.stringify(plan), current.id)
+      const workflow = this.setWorkflow({
+        currentStage: pending ? stages[0]!.key : current.currentStage,
+        status: 'RUNNING', wakeAt: null, pauseReason: null,
+      })
+      this.addActivity('workflow', '确认流程路线', stages.map(stage => stage.label).join(' → '))
+      return workflow
+    })
   }
 
   addActivity(type: ActivityEvent['type'], label: string, detail: string): ActivityEvent {
@@ -697,6 +731,9 @@ export class WetFlowStore {
     if (!workflowColumns.some(column => column.name === 'revision')) {
       this.db.exec('ALTER TABLE workflow_runs ADD COLUMN revision INTEGER NOT NULL DEFAULT 0')
     }
+    if (!workflowColumns.some(column => column.name === 'plan_json')) {
+      this.db.exec('ALTER TABLE workflow_runs ADD COLUMN plan_json TEXT')
+    }
     const approvalColumns = this.db.prepare('PRAGMA table_info(approvals)').all() as Array<{ name: string }>
     if (!approvalColumns.some(column => column.name === 'proposal_json')) {
       this.db.exec('ALTER TABLE approvals ADD COLUMN proposal_json TEXT')
@@ -711,6 +748,9 @@ export class WetFlowStore {
       this.db.exec('ALTER TABLE approvals ADD COLUMN workflow_revision INTEGER')
     }
     const messageColumns = this.db.prepare('PRAGMA table_info(messages)').all() as Array<{ name: string }>
+    if (!messageColumns.some(column => column.name === 'attachments_json')) {
+      this.db.exec('ALTER TABLE messages ADD COLUMN attachments_json TEXT')
+    }
     if (!messageColumns.some(column => column.name === 'reasoning_content')) {
       this.db.exec('ALTER TABLE messages ADD COLUMN reasoning_content TEXT')
     }
@@ -798,7 +838,7 @@ export class WetFlowStore {
       this.db.prepare(`INSERT INTO workflow_runs
         (id, project_id, name, project, current_stage, status, wake_at, pause_reason, completed_stages, updated_at, revision)
         VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, 0)`).run(
-        'wf-demo', fallbackProject.id, 'PYC 来源筛选', fallbackProject.name, 'DESIGN_REVIEW', 'RUNNING', JSON.stringify(['DRAFT']), updatedAt,
+        'wf-demo', fallbackProject.id, 'PYC 来源筛选', fallbackProject.name, 'DRAFT', 'RUNNING', '[]', updatedAt,
       )
     }
     this.activeWorkflowRunId()
@@ -807,7 +847,7 @@ export class WetFlowStore {
   private seedWelcomeMessage(): void {
     const count = this.db.prepare('SELECT COUNT(*) AS n FROM messages').get() as { n: number }
     if (count.n > 0) return
-    this.addMessage('assistant', 'WetFlow 已就绪。你可以让我检查当前流程、生成工具提案，或暂停任务并设置唤醒时间。')
+    this.addMessage('assistant', 'WetFlow 已就绪。可以先一起商讨研究目标和阶段安排，确认后保存为流程路线；也可以检索资料、调用工具或暂停任务。')
   }
 
   private backfillContextOwnership(): void {

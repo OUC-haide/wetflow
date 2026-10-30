@@ -1,7 +1,9 @@
+import { BatchDataWorkspace } from './plugins/BatchDataWorkspace.js'
+import type { WetFlowPlugins } from '../plugins/manager.js'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Activity, ArrowDown, ArrowUp, Bot, BrainCircuit, Check, ChevronDown, ChevronRight,
-  Circle, Clock3, Database, FileText, FlaskConical, FolderKanban, GitBranch, History, KeyRound, LoaderCircle, Menu, MessageSquare, Moon, Paperclip, Pencil,
+  Circle, Clock3, Database, Layers3, FileText, FlaskConical, FolderKanban, GitBranch, History, KeyRound, LoaderCircle, Menu, MessageSquare, Moon, Paperclip, Pencil,
   PanelRight, Play, Plus, RefreshCw, Settings2, ShieldCheck, Sparkles, Sun, Wrench, X,
   XCircle, Plug,
 } from 'lucide-react'
@@ -10,9 +12,12 @@ import {
   type AgentSnapshot,
   type ApprovalRequest,
   type ChatMessage,
+  type ChatAttachment,
   type EvidenceSource,
   type WorkspaceCatalog,
+  type WorkflowStage,
 } from '../core/types.js'
+import { workflowPlan, workflowStageLabel } from '../core/workflow.js'
 import { ModelingWorkspace } from './ModelingWorkspace.js'
 import { ResearchWorkspace } from './ResearchWorkspace.js'
 import { MessageContent } from './MessageContent.js'
@@ -94,6 +99,7 @@ const SUGGESTIONS = [
 
 const TOOL_LABELS: Record<string, { label: string; action: string }> = {
   workflow_status: { label: '读取工作流状态', action: '检查状态' },
+  workflow_set_plan: { label: '商讨流程路线', action: '商讨流程' },
   workflow_advance: { label: '推进工作流', action: '发起推进' },
   workflow_pause: { label: '暂停与定时唤醒', action: '发起暂停' },
   workflow_wake: { label: '立即唤醒', action: '唤醒' },
@@ -168,7 +174,7 @@ function approvalOutcome(approval: ApprovalRequest, content: string): string {
 
 function ApprovalDetails({ approval }: { approval: ApprovalRequest }) {
   return (
-    <div className="approval-details">
+    <div className={`approval-details ${approval.tool === 'workflow_set_plan' ? 'approval-details--plan' : ''}`}>
       <div className="approval-details__topline">
         <span className="approval-details__label"><ShieldCheck size={14} /> 工具审批</span>
         <span className={`risk risk--${approval.risk.toLowerCase()}`}>
@@ -224,6 +230,12 @@ function Message({ message, approval, editing, draft, busy, showReasoning, onEdi
           <summary><BrainCircuit size={14} /><span>思考过程</span><ChevronDown size={13} /></summary>
           <div className="message-reasoning__body"><MessageContent content={message.reasoningContent} /></div>
         </details>}
+        {!!message.attachments?.length && <div className="chat-attachments">
+          {message.attachments.map(item => <a key={item.id} className="chat-attachment" href={`/api/attachments/${item.id}`} target="_blank" rel="noreferrer">
+            {item.kind === 'image' ? <img src={`/api/attachments/${item.id}`} alt={item.name} /> : <FileText size={24} />}
+            <span>{item.name}</span>
+          </a>)}
+        </div>}
         {editing
           ? <div className="message-editor">
             <textarea
@@ -251,19 +263,19 @@ function Message({ message, approval, editing, draft, busy, showReasoning, onEdi
   )
 }
 
-function StageTimeline({ currentIndex }: { currentIndex: number }) {
+function StageTimeline({ currentIndex, stages }: { currentIndex: number; stages: WorkflowStage[] }) {
   const [expanded, setExpanded] = useState(false)
   return (
     <section className="timeline-section">
       <button className="section-toggle" onClick={() => setExpanded(value => !value)} aria-expanded={expanded}>
         <span><History size={14} /> 流程路线</span>
-        <span>{String(currentIndex + 1).padStart(2, '0')} / {String(WORKFLOW_STAGES.length).padStart(2, '0')}<ChevronDown size={14} /></span>
+        <span>{String(currentIndex + 1).padStart(2, '0')} / {String(stages.length).padStart(2, '0')}<ChevronDown size={14} /></span>
       </button>
       <div className={`stage-list ${expanded ? 'stage-list--expanded' : ''}`}>
-        {WORKFLOW_STAGES.map((stage, index) => {
+        {stages.map((stage, index) => {
           const done = index < currentIndex
           const active = index === currentIndex
-          const nearby = index >= Math.max(0, currentIndex - 1) && index <= Math.min(WORKFLOW_STAGES.length - 1, currentIndex + 2)
+          const nearby = index >= Math.max(0, currentIndex - 1) && index <= Math.min(stages.length - 1, currentIndex + 2)
           return (
             <div key={stage.key} aria-current={active ? 'step' : undefined} className={`stage-row ${done ? 'stage-row--done' : ''} ${active ? 'stage-row--active' : ''} ${!expanded && !nearby ? 'stage-row--hidden' : ''}`}>
               <span className="stage-row__marker">{done ? <Check size={11} /> : active ? <Circle size={7} fill="currentColor" /> : String(index + 1).padStart(2, '0')}</span>
@@ -277,8 +289,9 @@ function StageTimeline({ currentIndex }: { currentIndex: number }) {
   )
 }
 
-function WorkflowPanel({ snapshot, onWake, onRefresh, onClose, onContextBudget, busy }: {
+function WorkflowPanel({ snapshot, onWake, onRefresh, onClose, onContextBudget, onDiscuss, busy }: {
   snapshot: AgentSnapshot
+  onDiscuss: () => void
   onContextBudget: (budget: number) => Promise<void>
   onWake: () => void
   onRefresh: () => void
@@ -298,10 +311,13 @@ function WorkflowPanel({ snapshot, onWake, onRefresh, onClose, onContextBudget, 
   }
   const [currentTime, setCurrentTime] = useState(Date.now())
   const [activityOpen, setActivityOpen] = useState(true)
-  const currentIndex = WORKFLOW_STAGES.findIndex(stage => stage.key === snapshot.workflow.currentStage)
+  const plan = workflowPlan(snapshot.workflow)
+  const stages = plan.stages
+  const pending = plan.status === 'pending'
+  const currentIndex = stages.findIndex(stage => stage.key === snapshot.workflow.currentStage)
   const safeIndex = Math.max(0, currentIndex)
-  const current = WORKFLOW_STAGES[safeIndex]
-  const next = WORKFLOW_STAGES[safeIndex + 1]
+  const current = stages[safeIndex]
+  const next = stages[safeIndex + 1]
   const paused = snapshot.workflow.status === 'PAUSED'
   const waiting = snapshot.workflow.status === 'WAITING_APPROVAL'
 
@@ -326,11 +342,11 @@ function WorkflowPanel({ snapshot, onWake, onRefresh, onClose, onContextBudget, 
 
       <section className={`stage-focus ${paused ? 'stage-focus--paused' : ''} ${waiting ? 'stage-focus--waiting' : ''}`}>
         <div className="stage-focus__topline">
-          <span className="stage-focus__status"><i className="status-dot" />{paused ? '流程已暂停' : waiting ? '等待人工确认' : '正在进行'}</span>
-          <span className="stage-focus__counter">{String(safeIndex + 1).padStart(2, '0')} / {String(WORKFLOW_STAGES.length).padStart(2, '0')}</span>
+          <span className="stage-focus__status"><i className="status-dot" />{paused ? '流程已暂停' : waiting ? '等待人工确认' : pending ? '共同规划' : snapshot.workflow.status === 'COMPLETED' ? '已完成' : '正在进行'}</span>
+          <span className="stage-focus__counter">{pending ? '待定' : `${String(safeIndex + 1).padStart(2, '0')} / ${String(stages.length).padStart(2, '0')}`}</span>
         </div>
-        <h2>{current?.label ?? snapshot.workflow.currentStage}</h2>
-        <p>{paused ? snapshot.workflow.pauseReason : current?.description}</p>
+        <h2>{pending ? '流程待定' : current?.label ?? snapshot.workflow.currentStage}</h2>
+        <p>{paused ? snapshot.workflow.pauseReason : pending ? '由你与 Agent 共同商讨阶段安排，确认后生成流程路线。' : current?.description}</p>
         {!paused && next && <div className="next-stage"><span>接下来</span><strong>{next.label}</strong><ChevronRight size={13} /></div>}
         {paused && snapshot.workflow.wakeAt && (
           <div className="wake-schedule">
@@ -341,11 +357,15 @@ function WorkflowPanel({ snapshot, onWake, onRefresh, onClose, onContextBudget, 
         {paused && <button className="button button--primary button--wake" disabled={busy} onClick={onWake}><Play size={14} fill="currentColor" /> 立即唤醒</button>}
       </section>
 
-      <div className="progress-track" aria-label={`整体进度 ${safeIndex + 1}/${WORKFLOW_STAGES.length}`}>
-        <i style={{ width: `${((safeIndex + 1) / WORKFLOW_STAGES.length) * 100}%` }} />
-      </div>
+      {!pending && <div className="progress-track" aria-label={`整体进度 ${safeIndex + 1}/${stages.length}`}>
+        <i style={{ width: `${((safeIndex + 1) / stages.length) * 100}%` }} />
+      </div>}
 
-      <StageTimeline currentIndex={safeIndex} />
+      {pending ? <section className="timeline-section workflow-plan-pending" aria-label="流程路线待定">
+        <div className="workflow-plan-pending__title"><History size={14} /><strong>流程路线</strong><span>待定</span></div>
+        <p>先聊清研究目标、已有资料和下一步工作，再一起确定阶段与顺序。</p>
+        <button className="button button--quiet" disabled={busy || waiting || !snapshot.tools.some(tool => tool.name === 'workflow_set_plan')} onClick={onDiscuss}><MessageSquare size={14} />与 Agent 商讨</button>
+      </section> : <StageTimeline key={snapshot.workflow.id} currentIndex={safeIndex} stages={stages} />}
 
       <section className="context-window" aria-label="模型上下文窗口">
         <div className="context-window__head">
@@ -413,6 +433,18 @@ export function App() {
   const [modelingOpen, setModelingOpen] = useState(false)
   const [researchOpen, setResearchOpen] = useState(false)
   const [pluginsOpen, setPluginsOpen] = useState(() => new URLSearchParams(window.location.search).get('view') === 'plugins')
+  const [batchOpen, setBatchOpen] = useState(() => new URLSearchParams(window.location.search).get('view') === 'batch-data')
+  const [pluginState, setPluginState] = useState<ReturnType<WetFlowPlugins['snapshot']>>()
+  const refreshPlugins = useCallback(async () => {
+    try { setPluginState(await request<ReturnType<WetFlowPlugins['snapshot']>>('/api/plugins')) } catch { /* Connection banner already reports an unreachable server. */ }
+  }, [])
+  useEffect(() => { void refreshPlugins(); const timer = setInterval(() => void refreshPlugins(), 4000); return () => clearInterval(timer) }, [refreshPlugins])
+  const pluginLoaded = (id: string) => [...pluginState?.plugins ?? [], ...pluginState?.extensions ?? []].some(p => p.id === id && p.loaded)
+  const batchEnabled = pluginLoaded('batch-data')
+  const filesEnabled = pluginLoaded('local-files')
+  const mediaEnabled = pluginLoaded('document-media')
+  useEffect(() => { if (pluginState && !batchEnabled) setBatchOpen(false) }, [pluginState, batchEnabled])
+  useEffect(() => { if (pluginState && !filesEnabled) setChatAttachments([]) }, [pluginState, filesEnabled])
   const [conversationList, setConversationList] = useState<ConversationList>({ activeId: '', items: [] })
   const [editingConversationId, setEditingConversationId] = useState<string>()
   const [conversationTitleDraft, setConversationTitleDraft] = useState('')
@@ -452,6 +484,9 @@ export function App() {
   const conversationRef = useRef<HTMLElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const evidenceInputRef = useRef<HTMLInputElement>(null)
+  const attachmentInputRef = useRef<HTMLInputElement>(null)
+  const [chatAttachments, setChatAttachments] = useState<ChatAttachment[]>([])
+  const [attachmentBusy, setAttachmentBusy] = useState(false)
   const loadedRef = useRef(false)
   const shouldScrollRef = useRef(false)
 
@@ -563,15 +598,38 @@ export function App() {
     : busy ? { label: '正在思考', detail: '正在检查工作流上下文', tone: 'thinking' }
       : agentState(snapshot)
 
+  const uploadAttachments = async (files: File[]) => {
+    if (!files.length || busy || attachmentBusy) return
+    if (files.length + chatAttachments.length > 4) { setError('每条消息最多附加 4 个文件。'); return }
+    setAttachmentBusy(true); setError(undefined)
+    try {
+      for (const file of files) {
+        if (file.size > 20 * 1024 * 1024) throw new Error(`${file.name} 超过 20 MiB，请先拆分。`)
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve(String(reader.result))
+          reader.onerror = () => reject(new Error(`无法读取 ${file.name}`))
+          reader.readAsDataURL(file)
+        })
+        const attachment = await request<ChatAttachment>('/api/attachments', { method: 'POST', body: JSON.stringify({ name: file.name, dataUrl }) })
+        setChatAttachments(current => [...current, attachment])
+      }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)) }
+    finally { setAttachmentBusy(false); if (attachmentInputRef.current) attachmentInputRef.current.value = '' }
+  }
+
+  useEffect(() => { setChatAttachments([]) }, [snapshot.context.conversationId])
+
   const send = async (content = input) => {
     const value = content.trim()
-    if (!value || busy) return
+    if ((!value && !chatAttachments.length) || busy || attachmentBusy) return
     setBusy(true); setInput(''); setError(undefined)
     try {
       const next = await request<AgentSnapshot>('/api/chat', {
         method: 'POST',
         body: JSON.stringify({
           content: value,
+          attachmentIds: chatAttachments.map(item => item.id),
           ...(modelCatalog.enabled ? {
             model: selectedModel || modelCatalog.defaultModel,
             reasoningEffort: effectiveReasoningEffort,
@@ -580,6 +638,7 @@ export function App() {
       })
       shouldScrollRef.current = true
       setSnapshot(next)
+      setChatAttachments([])
     }
     catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); setInput(value) }
     finally { setBusy(false); inputRef.current?.focus() }
@@ -868,6 +927,7 @@ export function App() {
   const useTool = (toolName: string) => {
     setToolsOpen(false)
     if (toolName === 'workflow_status') { void send('检查当前工作流状态'); return }
+    if (toolName === 'workflow_set_plan') { setInput('我们一起商讨这个项目的流程，请先了解我的目标和已有资料，再提出阶段安排供我确认。'); return }
     if (toolName === 'workflow_advance') { void send('推进到下一步'); return }
     if (toolName === 'workflow_pause') { void send('暂停一小时'); return }
     if (toolName === 'workflow_wake') void wake()
@@ -917,12 +977,13 @@ export function App() {
         <div className="brand-mark"><FlaskConical size={16} /></div>
         <button className="rail-button rail-new-chat" aria-label="新建对话" title="新建对话" disabled={busy} onClick={() => void newConversation()}><Plus size={18} /></button>
         <button className={`rail-button ${workspaceMenuOpen ? 'rail-button--active' : ''}`} aria-label="项目与工作流运行" aria-expanded={workspaceMenuOpen} onClick={toggleWorkspaceMenu}><FolderKanban size={17} /></button>
-        <button className={`rail-button ${modelingOpen ? 'rail-button--active' : ''}`} aria-label="生物过程建模" title="生物过程建模" aria-pressed={modelingOpen} onClick={() => { setModelingOpen(value => !value); setResearchOpen(false); setPluginsOpen(false) }}><FlaskConical size={17} /></button>
-        <button className={`rail-button ${researchOpen ? 'rail-button--active' : ''}`} aria-label="搜索建库" title="搜索建库" aria-pressed={researchOpen} onClick={() => { setResearchOpen(value => !value); setModelingOpen(false); setPluginsOpen(false) }}><Database size={17} /></button>
+        <button className={`rail-button ${modelingOpen ? 'rail-button--active' : ''}`} aria-label="生物过程建模" title="生物过程建模" aria-pressed={modelingOpen} onClick={() => { setBatchOpen(false); setModelingOpen(value => !value); setResearchOpen(false); setPluginsOpen(false) }}><FlaskConical size={17} /></button>
+        <button className={`rail-button ${researchOpen ? 'rail-button--active' : ''}`} aria-label="搜索建库" title="搜索建库" aria-pressed={researchOpen} onClick={() => { setBatchOpen(false); setResearchOpen(value => !value); setModelingOpen(false); setPluginsOpen(false) }}><Database size={17} /></button>
+        {batchEnabled && <button className={`rail-button ${batchOpen ? 'rail-button--active' : ''}`} aria-label="多批次数据" title="多批次数据" aria-pressed={batchOpen} onClick={() => { setBatchOpen(value => !value); setResearchOpen(false); setModelingOpen(false); setPluginsOpen(false); setPanelOpen(false) }}><Layers3 size={17}/></button>}
         <button className={`rail-button ${conversationMenuOpen ? 'rail-button--active' : ''}`} aria-label="对话列表" aria-expanded={conversationMenuOpen} onClick={toggleConversationMenu}><MessageSquare size={17} /></button>
         <button className={`rail-button ${panelOpen ? 'rail-button--active' : ''}`} aria-label={panelOpen ? '隐藏工作流' : '查看工作流'} onClick={() => setPanelOpen(value => !value)}><Activity size={17} /></button>
         <button className={`rail-button ${toolsOpen ? 'rail-button--active' : ''}`} aria-label="工具与唤醒" aria-expanded={toolsOpen} onClick={() => { setToolsOpen(value => !value); setConversationMenuOpen(false); setWorkspaceMenuOpen(false); setEvidenceOpen(false) }}><Wrench size={16} /></button>
-        <button className={`rail-button ${pluginsOpen ? 'rail-button--active' : ''}`} aria-label="Plugin lifecycle" title="Plugin lifecycle" aria-pressed={pluginsOpen} onClick={() => { setPluginsOpen(value => !value); setModelingOpen(false); setResearchOpen(false); setPanelOpen(false) }}><Plug size={17} /></button>
+        <button className={`rail-button ${pluginsOpen ? 'rail-button--active' : ''}`} aria-label="Plugin lifecycle" title="Plugin lifecycle" aria-pressed={pluginsOpen} onClick={() => { setBatchOpen(false); setPluginsOpen(value => !value); setModelingOpen(false); setResearchOpen(false); setPanelOpen(false) }}><Plug size={17} /></button>
         <div className="rail-spacer" />
         <button className="icon-button" aria-label={dark ? '切换为浅色外观' : '切换为深色外观'} aria-pressed={dark} onClick={() => setDark(value => !value)}>{dark ? <Sun size={15} /> : <Moon size={15} />}</button>
         <button className={`icon-button ${settingsOpen ? 'icon-button--active' : ''}`} aria-label="模型设置" aria-haspopup="dialog" onClick={() => void openSettings()}><Settings2 size={15} /></button>
@@ -940,7 +1001,8 @@ export function App() {
           <div className="topbar__actions">
             <button className="mobile-theme" aria-label="新建对话" title="新建对话" disabled={busy} onClick={() => void newConversation()}><Plus size={16} /></button>
             <button className="mobile-theme" aria-label="对话列表" aria-expanded={conversationMenuOpen} onClick={toggleConversationMenu}><History size={15} /></button>
-            <button className="mobile-theme" aria-label="搜索建库" aria-pressed={researchOpen} onClick={() => { setResearchOpen(value => !value); setModelingOpen(false); setPluginsOpen(false) }}><Database size={15} /></button>
+            <button className="mobile-theme" aria-label="搜索建库" aria-pressed={researchOpen} onClick={() => { setBatchOpen(false); setResearchOpen(value => !value); setModelingOpen(false); setPluginsOpen(false) }}><Database size={15} /></button>
+            {batchEnabled && <button className="mobile-theme" aria-label="多批次数据" onClick={() => { setBatchOpen(value => !value); setResearchOpen(false); setModelingOpen(false); setPluginsOpen(false); setPanelOpen(false) }}><Layers3 size={15}/></button>}
             <button className="mobile-theme" aria-label="工具与唤醒" aria-expanded={toolsOpen} onClick={() => { setToolsOpen(value => !value); setConversationMenuOpen(false); setWorkspaceMenuOpen(false); setEvidenceOpen(false) }}><Wrench size={15} /></button>
             <button className="mobile-theme" aria-label={dark ? '切换为浅色外观' : '切换为深色外观'} aria-pressed={dark} onClick={() => setDark(value => !value)}>{dark ? <Sun size={15} /> : <Moon size={15} />}</button>
             <button className="mobile-theme" aria-label="模型设置" aria-haspopup="dialog" onClick={() => void openSettings()}><Settings2 size={15} /></button>
@@ -950,8 +1012,10 @@ export function App() {
           </div>
         </header>
 
-        {pluginsOpen
-          ? <PluginWorkspace />
+        {batchOpen && batchEnabled
+          ? <BatchDataWorkspace key={snapshot.workflow.projectId} projectId={snapshot.workflow.projectId} projectName={snapshot.workflow.project} onClose={() => setBatchOpen(false)} />
+          : pluginsOpen
+          ? <PluginWorkspace onChange={() => void refreshPlugins()} />
           : researchOpen
           ? <ResearchWorkspace key={workspaceCatalog.activeWorkflowRunId || snapshot.workflow.id} runId={workspaceCatalog.activeWorkflowRunId || snapshot.workflow.id} />
           : modelingOpen
@@ -999,10 +1063,20 @@ export function App() {
             {error && <div className="error-strip" role="alert"><XCircle size={14} /><span>{error}</span><button onClick={() => setError(undefined)} aria-label="关闭错误"><X size={13} /></button></div>}
             <div className={`composer ${activeApproval ? 'composer--approval' : ''}`}>
               {activeApproval && <ApprovalDetails approval={activeApproval} />}
+              {!!chatAttachments.length && <div className="chat-attachments chat-attachments--pending">
+                {chatAttachments.map(item => <div className="chat-attachment" key={item.id}>
+                  {item.kind === 'image' ? <img src={`/api/attachments/${item.id}`} alt={item.name} /> : <FileText size={24} />}
+                  <span>{item.name}</span><button disabled={busy} onClick={() => setChatAttachments(items => items.filter(file => file.id !== item.id))} aria-label={`移除 ${item.name}`}><X size={14} /></button>
+                </div>)}
+              </div>}
               <textarea
                 ref={inputRef}
                 value={input}
                 onChange={event => { setInput(event.target.value); event.target.style.height = 'auto'; event.target.style.height = `${Math.min(event.target.scrollHeight, 160)}px` }}
+                onPaste={event => {
+                  const files = Array.from(event.clipboardData.files).filter(file => file.type.startsWith('image/'))
+                  if (files.length && mediaEnabled && filesEnabled) { event.preventDefault(); void uploadAttachments(files) }
+                }}
                 onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send() } }}
                 placeholder={activeApproval ? '追问这项操作的影响，或直接作出决定…' : '告诉 WetFlow 你接下来想做什么'}
                 aria-label="给 WetFlow 发送消息"
@@ -1012,6 +1086,12 @@ export function App() {
               <div className="composer__footer">
                 <span>{activeApproval ? <><span className="approval-lock"><ShieldCheck size={12} />执行前保持不变</span>{pending.length > 1 && ` · 还有 ${pending.length - 1} 项待处理`}</> : <><kbd>Ctrl</kbd><kbd>K</kbd> 聚焦 · <kbd>Shift</kbd><kbd>Enter</kbd> 换行</>}</span>
                 <div className="composer__actions">
+                  <button className="attachment-button" disabled={busy || attachmentBusy || !filesEnabled} onClick={() => attachmentInputRef.current?.click()} aria-label="添加图片、PDF或文本附件" title="图片 / PDF / 文本，最多 4 个，每个 20 MiB">
+                    {attachmentBusy ? <LoaderCircle className="spin" size={16} /> : <Paperclip size={16} />}<span>添加附件</span>
+                  </button>
+                  <input className="sr-only" ref={attachmentInputRef} type="file" multiple
+                    accept={mediaEnabled ? ".pdf,.png,.jpg,.jpeg,.webp,.txt,.md,.markdown,.csv,.tsv,.json,.jsonl,.log,.yaml,.yml,.xml,.html" : ".txt,.md,.markdown,.csv,.tsv,.json,.jsonl,.log,.yaml,.yml,.xml,.html"}
+                    onChange={event => void uploadAttachments(Array.from(event.target.files ?? []))} />
                   {activeApproval && <>
                     <button className="composer-decision composer-decision--reject" disabled={busy} onClick={() => void decide(activeApproval.id, 'reject')}>
                       {decisionBusy?.id === activeApproval.id && decisionBusy.decision === 'reject' ? <LoaderCircle className="spin" size={14} /> : <X size={14} />}<span>{decisionBusy?.id === activeApproval.id && decisionBusy.decision === 'reject' ? '拒绝中' : '拒绝'}</span>
@@ -1020,7 +1100,7 @@ export function App() {
                       {decisionBusy?.id === activeApproval.id && decisionBusy.decision === 'approve' ? <LoaderCircle className="spin" size={14} /> : <Check size={14} />}<span>{decisionBusy?.id === activeApproval.id && decisionBusy.decision === 'approve' ? '执行中' : '通过并执行'}</span>
                     </button>
                   </>}
-                  <button className="send-button" disabled={busy || input.trim() === ''} onClick={() => void send()} aria-label={activeApproval ? '发送追问' : '发送消息'}><ArrowUp size={16} /></button>
+                  <button className="send-button" disabled={busy || attachmentBusy || (input.trim() === '' && !chatAttachments.length)} onClick={() => void send()} aria-label={activeApproval ? '发送追问' : '发送消息'}><ArrowUp size={16} /></button>
                 </div>
               </div>
             </div>
@@ -1078,7 +1158,7 @@ export function App() {
               {!externalModelSelected && <span className="model-mode-note">内置规则模式</span>}
             </div>
             {!activeApproval && <div className="suggestions" aria-label="快捷操作">
-              {SUGGESTIONS.map(item => <button key={item.prompt} disabled={busy} onClick={() => void send(item.prompt)}><item.icon size={13} />{item.label}</button>)}
+              {SUGGESTIONS.map(item => workflowPlan(snapshot.workflow).status === 'pending' && item.prompt === '推进到下一步' ? { label: '商讨流程', prompt: '我们一起商讨这个项目的流程，请先了解我的目标和已有资料。', icon: MessageSquare } : item).map(item => <button key={item.prompt} disabled={busy} onClick={() => void send(item.prompt)}><item.icon size={13} />{item.label}</button>)}
             </div>}
             <small className="composer-note">正式实验操作前，请核对原始记录与审批内容。</small>
           </div>
@@ -1137,7 +1217,7 @@ export function App() {
                       onClick={() => void switchWorkflowRun(run.id)}
                     >
                       <GitBranch size={13} />
-                      <span><strong>{run.name}</strong><small>{stage?.label ?? run.currentStage} · {relativeTime(run.updatedAt)}</small></span>
+                      <span><strong>{run.name}</strong><small>{run.currentStageLabel ?? stage?.label ?? run.currentStage} · {relativeTime(run.updatedAt)}</small></span>
                       <i className={`run-status run-status--${run.status.toLowerCase()}`} title={run.status} />
                     </button>
                   })}
@@ -1210,7 +1290,7 @@ export function App() {
             <button className="icon-button" aria-label="关闭工具列表" onClick={() => setToolsOpen(false)}><X size={15} /></button>
           </header>
           <section className={`wake-overview ${snapshot.workflow.status === 'PAUSED' ? 'wake-overview--paused' : ''}`}>
-            <div className="wake-overview__top"><span><i className="status-dot" />{snapshot.workflow.status === 'PAUSED' ? 'Agent 已暂停' : 'Agent 正在运行'}</span><code>{snapshot.workflow.currentStage}</code></div>
+            <div className="wake-overview__top"><span><i className="status-dot" />{snapshot.workflow.status === 'PAUSED' ? 'Agent 已暂停' : 'Agent 正在运行'}</span><code>{workflowStageLabel(snapshot.workflow)}</code></div>
             {snapshot.workflow.status === 'PAUSED'
               ? <><p>{snapshot.workflow.pauseReason || '工作流正在等待唤醒。'}</p>{snapshot.workflow.wakeAt && <small>计划唤醒：{new Date(snapshot.workflow.wakeAt).toLocaleString('zh-CN')}</small>}<button className="button button--primary" disabled={busy} onClick={() => void wake()}><Play size={13} fill="currentColor" />立即唤醒</button></>
               : <p>当前无需唤醒；你仍可通过工具列表读取状态、发起推进或暂停。</p>}
@@ -1244,6 +1324,7 @@ export function App() {
             const updated = await request<AgentSnapshot>('/api/context-settings', { method: 'PATCH', body: JSON.stringify({ tokenBudget }) })
             setSnapshot(updated)
           }}
+          onDiscuss={() => { setInput('我们一起商讨这个项目的流程，请先了解我的目标和已有资料，再提出阶段安排供我确认。'); if (window.innerWidth < 1100) setPanelOpen(false) }}
           onWake={wake}
           onRefresh={() => void load()}
           onClose={() => setPanelOpen(false)}
@@ -1309,8 +1390,8 @@ export function App() {
             </label>
 
             <div className="settings-privacy">
-              <label><input type="checkbox" checked={privacySettings.allowDocumentExcerpts} disabled={settingsBusy} onChange={event => void updatePrivacySettings(event.target.checked)}/><span>允许向云端模型发送自动检索的文献片段</span></label>
-              <small>关闭时会阻止自动文档片段、历史引文和研究工具正文进入模型请求；本地网页阅读照常可用。你主动输入或粘贴的文字仍会发送，系统无法可靠识别其中的文献内容。默认关闭。</small>
+              <label><input type="checkbox" checked={privacySettings.allowDocumentExcerpts} disabled={settingsBusy} onChange={event => void updatePrivacySettings(event.target.checked)}/><span>允许向模型发送资料和附件内容</span></label>
+              <small>开启后可发送检索片段、本地文件内容、图片和 PDF 页面。图片及扫描件需要所选模型与接口支持视觉输入。关闭时阻止这些内容进入模型请求，本地文件仍保留；你直接输入的文字仍会发送。默认关闭。</small>
             </div>
 
             <div className="settings-local-note"><ShieldCheck size={14} /><span>配置仅保存在本机，API Key 不会显示在页面或接口响应中。</span></div>

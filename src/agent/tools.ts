@@ -1,9 +1,23 @@
-import { WORKFLOW_STAGES, type RiskLevel, type ToolDefinition, type ToolProposal, type WorkflowStageKey } from '../core/types.js'
+import { type RiskLevel, type ToolDefinition, type ToolProposal, type WorkflowStageKey } from '../core/types.js'
+import type { ChatAttachment } from '../core/types.js'
+import type { ModelImage } from './media.js'
+import { workflowPlan } from '../core/workflow.js'
 import type { WetFlowStore } from '../core/store.js'
 
+export interface AttachmentHandler {
+  validate(items: ChatAttachment[]): void
+  image(item: ChatAttachment): Promise<ModelImage | undefined>
+}
 export class ToolRegistry {
+  private attachmentSupport: AttachmentHandler | undefined
+  get attachments(): AttachmentHandler | undefined { return this.attachmentSupport }
+  registerAttachments(handler: AttachmentHandler): void {
+    if (this.attachmentSupport) throw new Error('Attachment handler already registered')
+    this.attachmentSupport = handler
+  }
   private readonly tools = new Map<string, ToolDefinition<Record<string, unknown>, unknown>>()
   private readonly owners = new Map<string, string>()
+  private readonly policies = new Map<string, { text: string }>()
 
   /** Stage a complete plugin registration; dispose only this mount's tools. */
   mount(owner: string, register: (registry: ToolRegistry) => void): () => void {
@@ -12,6 +26,12 @@ export class ToolRegistry {
     for (const name of staged.tools.keys()) {
       if (this.tools.has(name)) throw new Error(`Tool ${name} is already registered`)
     }
+    for (const name of staged.policies.keys()) {
+      if (this.policies.has(name)) throw new Error(`Policy ${name} is already registered`)
+    }
+    if (staged.attachmentSupport && this.attachmentSupport) throw new Error('Attachment handler already registered')
+    const handler = staged.attachmentSupport
+    if (handler) this.attachmentSupport = handler
     let active = true
     const installed = new Map<string, ToolDefinition<Record<string, unknown>, unknown>>()
     for (const [name, tool] of staged.tools) {
@@ -23,14 +43,30 @@ export class ToolRegistry {
       this.owners.set(name, owner)
       installed.set(name, guarded)
     }
+    for (const [name, policy] of staged.policies) this.policies.set(name, policy)
     return () => {
       active = false
+      if (handler && this.attachmentSupport === handler) this.attachmentSupport = undefined
       for (const [name, tool] of installed) {
         if (this.tools.get(name) !== tool) continue
         this.tools.delete(name)
         this.owners.delete(name)
       }
+      for (const [name, policy] of staged.policies) {
+        if (this.policies.get(name) === policy) this.policies.delete(name)
+      }
     }
+  }
+
+  /** Trusted plugin code only; source documents must never register policies. */
+  registerInstructions(name: string, text: string): void {
+    if (!name.trim() || !text.trim()) throw new Error('Plugin policy needs a name and instructions')
+    if (this.policies.has(name)) throw new Error(`Policy ${name} is already registered`)
+    this.policies.set(name, { text })
+  }
+
+  instructions(): string {
+    return [...this.policies.values()].map(policy => policy.text).join('\n\n')
   }
 
   ownedBy(owner: string): string[] {
@@ -90,7 +126,7 @@ export function createWetFlowTools(store: WetFlowStore, now: () => Date = () => 
   })
   registry.register({
     name: 'workflow_advance',
-    description: '把工作流推进到唯一合法的下一阶段。',
+    description: '按照 workflow_status 返回的已确认流程，把工作流推进到唯一合法的下一阶段。流程待定时须先商讨并确认路线。',
     approvalRequired: true,
     risk: 'HIGH',
     mutatesState: true,
@@ -138,13 +174,15 @@ export function proposalForMessage(message: string, store: WetFlowStore): ToolPr
     }
   }
   if (/推进|下一步|继续执行|advance/.test(text)) {
-    const index = WORKFLOW_STAGES.findIndex(stage => stage.key === workflow.currentStage)
-    const next = WORKFLOW_STAGES[index + 1]
+    const plan = workflowPlan(workflow)
+    if (plan.status === 'pending') return undefined
+    const index = plan.stages.findIndex(stage => stage.key === workflow.currentStage)
+    const next = plan.stages[index + 1]
     if (!next) return undefined
     return {
       tool: 'workflow_advance',
       title: `推进到「${next.label}」`,
-      summary: `当前阶段为「${WORKFLOW_STAGES[index]?.label}」，通过后将进入 ${next.key}。`,
+      summary: `当前阶段为「${plan.stages[index]?.label}」，通过后将进入「${next.label}」。`,
       payload: { stage: next.key },
     }
   }

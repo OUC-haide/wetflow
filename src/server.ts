@@ -2,12 +2,15 @@
 import { chmodSync, createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { registerBatchDataRoutes } from './batch-data/routes.js'
 import Fastify from 'fastify'
 import type { FastifyReply } from 'fastify'
 import fastifyStatic from '@fastify/static'
 import { createWetFlowContext } from './cordis.js'
+import { createModelingPrediction } from './modeling/prediction.js'
+import { readEnabledPlugins, saveEnabledPlugins } from './plugins/settings.js'
 import { educationSourcesDirectory } from './plugins/assets.js'
-import { createWetFlowPlugins, PLUGIN_IDS, MANAGED_PLUGIN_IDS, type PluginId } from './plugins/index.js'
+import { createWetFlowPlugins, MANAGED_PLUGIN_IDS, type PluginId } from './plugins/index.js'
 import type { AgentEvent } from './core/types.js'
 import type { ReasoningEffort } from './agent/provider.js'
 import { OpenAICompatibleProvider } from './agent/provider.js'
@@ -45,6 +48,8 @@ export interface ServerOptions {
   modelingDataDir?: string
   researchDbPath?: string
   plugins?: PluginId[]
+  batchDataDbPath?: string
+  pluginSettingsPath?: string
 }
 
 interface StoredModelSettings {
@@ -119,29 +124,7 @@ function storedIndustrialDatabase(path: string): string | undefined {
   }
 }
 
-/**
- * Writes a modeling prediction through IndustrialStore. The job-derived
- * `artifactRef` doubles as a persisted idempotency key: if the prediction row was
- * written but the modeling task update did not survive, a retry (even after a
- * restart) resolves the existing row instead of duplicating it. Linking an
- * experiment stays a separate, explicit step and never marks the prediction tested.
- */
-export function createModelingPrediction(
-  store: IndustrialStore,
-  runId: string,
-  input: Record<string, unknown>,
-): { id: string } {
-  const artifactRef = typeof input.artifactRef === 'string' ? input.artifactRef.trim() : ''
-  if (artifactRef) {
-    const existing = store.predictionByArtifact(runId, artifactRef)
-    if (existing) return { id: existing.id }
-  }
-  return store.addPrediction(runId, {
-    model: String(input.model ?? 'local-modeling'), artifactRef: input.artifactRef,
-    prediction: input.prediction, conditions: input.conditions, uncertainty: input.uncertainty,
-    reason: input.reason,
-  }, { id: 'wetflow-modeling-agent', role: 'application' })
-}
+export { createModelingPrediction } from './modeling/prediction.js'
 
 export async function createServer(options: ServerOptions = {}) {
   const app = Fastify({ logger: false, bodyLimit: 3_000_000 })
@@ -176,6 +159,11 @@ export async function createServer(options: ServerOptions = {}) {
     allowDocumentExcerpts: () => allowDocumentExcerpts,
   })
   const agent = ctx.wetflow
+  const dataDirectory = dirname(workflowDbPath === ':memory:' ? settingsPath : workflowDbPath)
+  const attachmentService = () => {
+    if (!ctx.wetflowLocalFiles) throw new Error('请先启用本地文件插件。')
+    return ctx.wetflowLocalFiles
+  }
 
   const industrialSettingsFile = options.industrialSettingsPath
     ?? process.env.WETFLOW_INDUSTRIAL_SETTINGS_FILE
@@ -206,6 +194,8 @@ export async function createServer(options: ServerOptions = {}) {
     return ctx.wetflowResearch
   }
   const plugins = await createWetFlowPlugins(ctx, {
+    'batch-data': { dbPath: options.batchDataDbPath ?? (workflowDbPath === ':memory:' ? ':memory:' : join(dataDirectory, 'batch-data.db')) },
+    'local-files': { directory: join(dataDirectory, 'attachments') },
     experiment: { dbPath: industrialDatabasePath },
     modeling: {
       dataDir: options.modelingDataDir ?? process.env.WETFLOW_MODELING_DIR ?? '.wetflow/modeling',
@@ -221,8 +211,10 @@ export async function createServer(options: ServerOptions = {}) {
       modeling: modelingService,
     },
   })
+  const pluginSettingsPath = options.pluginSettingsPath ?? join(dirname(settingsPath), 'plugin-settings.json')
+  const enabledPlugins = options.plugins ?? readEnabledPlugins(pluginSettingsPath)
   try {
-    for (const id of options.plugins ?? PLUGIN_IDS) await plugins.load(id)
+    for (const id of enabledPlugins) await plugins.load(id)
   } catch (error) { await ctx.fiber.dispose(); throw error }
 
   // Routes resolve services on each request; unloading cannot leave a live REST backdoor.
@@ -231,18 +223,24 @@ export async function createServer(options: ServerOptions = {}) {
     const id = path.startsWith('/api/modeling/') ? 'modeling'
       : path.startsWith('/api/research/') ? 'research'
       : path.startsWith('/api/industrial/') ? 'experiment'
-      : path === '/api/evidence' ? 'evidence' : undefined
-    if (id && !plugins.snapshot().plugins.find(plugin => plugin.id === id)?.loaded) {
+      : path === '/api/evidence' ? 'evidence'
+      : path.startsWith('/api/attachments') ? 'local-files' : undefined
+    if (id && ![...plugins.snapshot().plugins, ...plugins.snapshot().extensions].find(plugin => plugin.id === id)?.loaded) {
       return reply.code(503).send({ error: `${id} Plugin is unloaded`, plugin: id })
     }
   })
   app.get('/api/plugins', async () => plugins.snapshot())
+  app.get('/api/education/library', async (_request, reply) => {
+    if (!ctx.wetflowEducation) return reply.code(409).send({ error: 'Load Education and its Evidence dependency first.' })
+    return ctx.wetflowEducation.catalogue()
+  })
   app.post<{ Params: { id: string; action: string } }>('/api/plugins/:id/:action', async (request, reply) => {
     const { id, action } = request.params
     if (!MANAGED_PLUGIN_IDS.includes(id as PluginId) || !['load', 'unload'].includes(action)) return reply.code(404).send({ error: 'Unknown plugin or action' })
     if (agent.snapshot().agentState === 'THINKING') return reply.code(409).send({ error: 'Wait for the current Agent turn to finish' })
     try {
       const result = await plugins[action as 'load' | 'unload'](id as PluginId)
+      saveEnabledPlugins(pluginSettingsPath, [...result.plugins, ...result.extensions].filter(p => p.enabled).map(p => p.id))
       agent.events.emit('event', { type: 'snapshot', snapshot: agent.snapshot() })
       return result
     }
@@ -285,6 +283,7 @@ export async function createServer(options: ServerOptions = {}) {
     return reply.code(notFound ? 404 : 400).send({ error: message })
   }
 
+  registerBatchDataRoutes(app, ctx)
   app.get('/health', async () => ({ ok: true, framework: 'cordis', service: 'wetflow-agent' }))
   app.get('/api/snapshot', async () => agent.snapshot())
   app.get('/api/evidence', async () => ({ items: ctx.wetflowEvidence!.sources() }))
@@ -408,8 +407,29 @@ export async function createServer(options: ServerOptions = {}) {
       defaultReasoningEffort: reasoning.defaultEffort,
     }
   })
-  app.post<{ Body: { content?: string; model?: string; reasoningEffort?: ReasoningEffort } }>('/api/chat', async (request, reply) => {
+  app.post<{ Body: { name?: string; dataUrl?: string } }>('/api/attachments', { bodyLimit: 29 * 1024 * 1024 }, async (request, reply) => {
     try {
+      return await attachmentService().save(agent.store.activeWorkflowRunId(), request.body.name, request.body.dataUrl)
+    } catch (error) { return reply.code(400).send({ error: error instanceof Error ? error.message : String(error) }) }
+  })
+  app.get<{ Params: { id: string } }>('/api/attachments/:id', async (request, reply) => {
+    try {
+      const item = await attachmentService().get(agent.store.activeWorkflowRunId(), request.params.id)
+      const bytes = await attachmentService().bytes(item.path)
+      const mime = item.kind === 'pdf' ? 'application/pdf' : item.kind === 'text' ? 'text/plain; charset=utf-8'
+        : bytes[0] === 137 ? 'image/png' : bytes[0] === 255 ? 'image/jpeg' : 'image/webp'
+      return reply.type(mime).header('X-Content-Type-Options', 'nosniff').header('Cache-Control', 'private, no-store')
+        .header('Content-Disposition', `${item.kind === 'image' ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(item.name)}`).send(bytes)
+    } catch (error) { return reply.code(404).send({ error: error instanceof Error ? error.message : String(error) }) }
+  })
+  app.post<{ Body: { content?: string; model?: string; reasoningEffort?: ReasoningEffort; attachmentIds?: string[] } }>('/api/chat', async (request, reply) => {
+    try {
+      const ids = request.body.attachmentIds ?? []
+      if (!Array.isArray(ids) || ids.length > 4 || ids.some(id => typeof id !== 'string')) {
+        return reply.code(400).send({ error: '每条消息最多附加 4 个文件。' })
+      }
+      const selectedAttachments = await Promise.all(ids.map(id => attachmentService().get(agent.store.activeWorkflowRunId(), id)))
+      if (selectedAttachments.length) attachmentService().validate(selectedAttachments)
       const reasoningEffort = request.body.reasoningEffort
       if (reasoningEffort !== undefined && !isReasoningEffort(reasoningEffort)) {
         return reply.code(400).send({ error: 'reasoningEffort 必须是 off、low、medium、high 或 max。' })
@@ -420,6 +440,7 @@ export async function createServer(options: ServerOptions = {}) {
         return reply.code(400).send({ error: '所选模型不在当前 Provider 的可用列表中。' })
       }
       return await agent.chat(request.body.content ?? '', {
+        ...(selectedAttachments.length ? { attachments: selectedAttachments } : {}),
         ...(catalog.enabled && model ? { model } : {}),
         ...(catalog.enabled && reasoningEffort ? { reasoningEffort } : {}),
       })

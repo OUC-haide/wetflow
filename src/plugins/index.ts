@@ -6,3 +6,8 @@ export * as FeedComparisonPlugin from './feed-comparison.js'
 export * as EducationPlugin from './education.js'
 export * from './manager.js'
 export * from './types.js'
+
+export * as BatchDataPlugin from './batch-data.js'
+export * as LocalFilesPlugin from './local-files.js'
+export * as DocumentMediaPlugin from './document-media.js'
+export * as WorkflowPlannerPlugin from './workflow-planner.js'

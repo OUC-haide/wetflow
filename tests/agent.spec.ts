@@ -15,6 +15,8 @@ function fixture(): { dir: string; store: WetFlowStore; agent: WetFlowAgent } {
   const dir = mkdtempSync(join(tmpdir(), 'wetflow-cordis-'))
   temporary.push(dir)
   const store = new WetFlowStore(join(dir, 'wetflow.db'))
+  // Existing approval scenarios use a recorded legacy route. New runs remain unplanned.
+  store.setWorkflow({ currentStage: 'DESIGN_REVIEW', completedStages: ['DRAFT'] })
   return { dir, store, agent: new WetFlowAgent(store) }
 }
 
@@ -36,7 +38,7 @@ describe('WetFlowAgent approval boundary', () => {
     expect(second.workflow.currentStage).toBe('DRAFT')
     expect(second.messages).toEqual([])
     expect(second.approvals).toEqual([])
-    const secondStaged = await agent.chat('推进到下一步')
+    const secondStaged = await agent.chat('暂停一小时')
     expect(secondStaged.approvals.some(item => item.status === 'PENDING')).toBe(true)
 
     const restored = agent.switchWorkflowRun(firstRunId)
@@ -264,6 +266,7 @@ describe('WetFlowAgent approval boundary', () => {
     temporary.push(dir)
     const path = join(dir, 'wetflow.db')
     const firstStore = new WetFlowStore(path)
+    firstStore.setWorkflow({ currentStage: 'DESIGN_REVIEW', completedStages: ['DRAFT'] })
     const firstAgent = new WetFlowAgent(firstStore)
     const staged = await firstAgent.chat('推进到下一步')
     const approvalId = staged.approvals.find(item => item.status === 'PENDING')?.id ?? ''

@@ -20,7 +20,9 @@
       "adaptation": "Use the phases to explain why each activity is included and how understanding will be checked.",
       "requiredResources": [],
       "owner": "OUC-Haide",
-      "year": 2026
+      "year": 2026,
+      "collection": "framework",
+      "status": "framework"
     },
     {
       "id": "ouc-route-puzzle",
@@ -46,7 +48,9 @@
         "paper"
       ],
       "owner": "OUC-Haide",
-      "year": 2026
+      "year": 2026,
+      "collection": "team",
+      "status": "proposal"
     },
     {
       "id": "ouc-refinement",
@@ -69,7 +73,9 @@
       "adaptation": "Pre-test the educational task. For a classroom-only plan, use prepared evidence cards instead of assuming access to an instrument.",
       "requiredResources": [],
       "owner": "OUC-Haide",
-      "year": 2026
+      "year": 2026,
+      "collection": "team",
+      "status": "reported_activity"
     },
     {
       "id": "ouc-dna-builder",
@@ -96,7 +102,9 @@
         "projector"
       ],
       "owner": "OUC-Haide",
-      "year": 2026
+      "year": 2026,
+      "collection": "team",
+      "status": "published_resource"
     },
     {
       "id": "ouc-fermentation-map",
@@ -123,7 +131,9 @@
         "projector"
       ],
       "owner": "OUC-Haide",
-      "year": 2026
+      "year": 2026,
+      "collection": "team",
+      "status": "published_resource"
     },
     {
       "id": "heidelberg-platform",
@@ -141,7 +151,13 @@
         "quiz",
         "learning",
         "classroom",
-        "protocol"
+        "protocol",
+        "数字",
+        "交互",
+        "平台",
+        "自主学习",
+        "测验",
+        "课堂"
       ],
       "practice": "Heidelberg combined illustrated protocols, calculators and quizzes; learner feedback informed the addition of laboratory videos.",
       "reflection": "The report links complementary formats to feedback from students and educators.",
@@ -151,7 +167,12 @@
         "projector"
       ],
       "owner": "Heidelberg",
-      "year": 2025
+      "year": 2025,
+      "collection": "historical",
+      "status": "published_resource",
+      "category": "digital-interactive",
+      "checkedOn": "2026-10-26",
+      "evidenceQuote": "Our platform features lab protocols, interactive calculators, module quizzes and videos"
     },
     {
       "id": "buct-tactile",
@@ -168,7 +189,15 @@
         "clay",
         "tactile",
         "children",
-        "feedback"
+        "feedback",
+        "包容",
+        "触觉",
+        "黏土",
+        "绘画",
+        "动手",
+        "儿童",
+        "小学生",
+        "特殊教育"
       ],
       "practice": "BUCT used illustrated explanations, drawings and colored-clay models, with individual facilitator support.",
       "reflection": "Teacher reflections and participant creations were used as feedback about participation and understanding.",
@@ -179,7 +208,256 @@
         "clay"
       ],
       "owner": "BUCT",
-      "year": 2025
+      "year": 2025,
+      "collection": "historical",
+      "status": "reported_activity",
+      "category": "inclusive-tactile",
+      "checkedOn": "2026-10-26",
+      "evidenceQuote": "the children transformed their two-dimensional sketches into three-dimensional models using colored clay."
+    },
+    {
+      "id": "peking-bioquest",
+      "owner": "Peking",
+      "year": 2025,
+      "document": "PEKING-2025-BIOQUEST.md",
+      "url": "https://2025.igem.wiki/peking/education/",
+      "location": "Branch 3: Reaching Higher — Synthetic BioQuest",
+      "title": "Peking: cross-disciplinary digital BioQuest",
+      "audiences": [
+        "university"
+      ],
+      "topics": [
+        "digital",
+        "quiz",
+        "dialogue",
+        "synthetic biology",
+        "数字",
+        "交互",
+        "大学",
+        "跨学科",
+        "问答"
+      ],
+      "practice": "The team ran a digital challenge using synthetic-biology scenarios and multiple-choice questions for students across university departments.",
+      "reflection": "The stated aim was interdisciplinary dialogue rather than a knowledge examination.",
+      "adaptation": "Pair each scenario with a short justification and discussion; choose examples appropriate to the new audience.",
+      "requiredResources": [
+        "internet",
+        "computer"
+      ],
+      "category": "digital-interactive",
+      "status": "reported_activity",
+      "evidenceQuote": "designed not to test knowledge, but to spark interdisciplinary dialogues.",
+      "collection": "historical",
+      "checkedOn": "2026-10-26"
+    },
+    {
+      "id": "depu-dna-workshop",
+      "owner": "DEPU",
+      "year": 2025,
+      "document": "DEPU-2025-DNA.md",
+      "url": "https://2025.igem.wiki/depu/education",
+      "location": "2.2 Education for Junior High School Students — Feedback and Reflection",
+      "title": "DEPU: explanation followed by fruit DNA extraction",
+      "audiences": [
+        "secondary"
+      ],
+      "topics": [
+        "DNA",
+        "experiment",
+        "fruit",
+        "hands-on",
+        "feedback",
+        "实验",
+        "动手",
+        "水果",
+        "提取",
+        "中学生"
+      ],
+      "practice": "The junior-high workshop combined a synthetic-biology presentation with fruit DNA extraction.",
+      "reflection": "Some participants found the presentation too basic; the team proposed adjusting future depth to prior knowledge.",
+      "adaptation": "Check prior knowledge first, connect each observation to a concept, and collect explanations after the demonstration.",
+      "requiredResources": [
+        "fruit DNA extraction materials",
+        "trained facilitator"
+      ],
+      "category": "hands-on-experiment",
+      "status": "reported_activity",
+      "evidenceQuote": "some students found the presentation content relatively basic.",
+      "collection": "historical",
+      "checkedOn": "2026-10-26"
+    },
+    {
+      "id": "barcelona-dna-toolkit",
+      "owner": "Barcelona-UB",
+      "year": 2025,
+      "document": "BARCELONA-UB-2025-TOOLKIT.md",
+      "url": "https://2025.igem.wiki/barcelona-ub/education-toolkit",
+      "location": "Experimental; Impact",
+      "title": "Barcelona-UB: modular fruit DNA extraction resource",
+      "audiences": [
+        "secondary"
+      ],
+      "topics": [
+        "DNA",
+        "experiment",
+        "fruit",
+        "protocol",
+        "comprehension",
+        "实验",
+        "探究",
+        "提取",
+        "模块",
+        "理解"
+      ],
+      "practice": "The toolkit provides a fruit-DNA activity with comprehension questions for high schools.",
+      "reflection": "The page describes the experimental resource; the cited school had implemented other modules and planned this one.",
+      "adaptation": "Use the experiment as a resource to adapt, with a concept check and locally confirmed materials.",
+      "requiredResources": [
+        "fruit DNA extraction materials",
+        "trained facilitator"
+      ],
+      "category": "hands-on-experiment",
+      "status": "published_resource",
+      "evidenceQuote": "Comprehension questions at the end help ensure students understand the biology behind the experiment.",
+      "collection": "historical",
+      "checkedOn": "2026-10-26"
+    },
+    {
+      "id": "nacis-cell-game",
+      "owner": "NACIS-Shanghai",
+      "year": 2025,
+      "document": "NACIS-SHANGHAI-2025-GAME.md",
+      "url": "https://2025.igem.wiki/nacis-shanghai/education/",
+      "location": "Yeast Adventure: Cell Explorer Card Game — Target Audience and Project Description",
+      "title": "NACIS-Shanghai: cell-structure tabletop game",
+      "audiences": [
+        "primary"
+      ],
+      "topics": [
+        "game",
+        "cards",
+        "cells",
+        "yeast",
+        "structure",
+        "游戏",
+        "卡牌",
+        "桌游",
+        "细胞",
+        "小学生"
+      ],
+      "practice": "The team describes a cell-themed tabletop game for children, with card collection and age-adapted modes.",
+      "reflection": "The page includes a campus demonstration and participant comments; these do not establish effects for a new adaptation.",
+      "adaptation": "Simplify the cards for the chosen age group and ask players to explain one structure-function connection.",
+      "requiredResources": [
+        "printed game cards",
+        "dice"
+      ],
+      "category": "games",
+      "status": "reported_activity",
+      "evidenceQuote": "A strategic tabletop game that introduces organelles and enzymes through family-friendly play.",
+      "collection": "historical",
+      "checkedOn": "2026-10-26"
+    },
+    {
+      "id": "nnu-rainbow-orchard",
+      "owner": "NNU-CHINA",
+      "year": 2024,
+      "document": "NNU-CHINA-2024-PICTURE-BOOK.md",
+      "url": "https://2024.igem.wiki/nnu-china/education",
+      "location": "Education Derivatives — 1.Picture Book",
+      "title": "NNU-CHINA: The Secret of the Rainbow Orchard",
+      "audiences": [
+        "primary"
+      ],
+      "topics": [
+        "story",
+        "picture book",
+        "environment",
+        "biopesticides",
+        "绘本",
+        "故事",
+        "儿童",
+        "环境",
+        "农业"
+      ],
+      "practice": "The team created a picture book about pesticide choices and greener agriculture for children.",
+      "reflection": "This section describes the resource and intended learning purpose, without a separate measured learning-gain result.",
+      "adaptation": "Pause at a decision in the story and ask learners to explain a choice using a scientific reason.",
+      "requiredResources": [
+        "picture book"
+      ],
+      "category": "storytelling",
+      "status": "published_resource",
+      "evidenceQuote": "The Secret of the Rainbow Orchard",
+      "collection": "historical",
+      "checkedOn": "2026-10-26"
+    },
+    {
+      "id": "rosey-deextinction-debate",
+      "owner": "Institut-Le-Rosey-CH",
+      "year": 2025,
+      "document": "LE-ROSEY-2025-DEBATE.md",
+      "url": "https://2025.igem.wiki/institut-le-rosey-ch/education/",
+      "location": "Debate; Debate planning document",
+      "title": "Institut-Le-Rosey-CH: discussing de-extinction",
+      "audiences": [
+        "secondary"
+      ],
+      "topics": [
+        "debate",
+        "ethics",
+        "evidence",
+        "de-extinction",
+        "辩论",
+        "讨论",
+        "伦理",
+        "证据",
+        "公众"
+      ],
+      "practice": "The team organized a community debate on de-extinction, with opposing teams and a chair.",
+      "reflection": "The stated motivation was responding to misinformation through discussion of science and ethical concerns.",
+      "adaptation": "Provide a short evidence pack, separate factual claims from value judgments, and collect reasons before and after discussion.",
+      "requiredResources": [
+        "evidence handouts",
+        "moderator"
+      ],
+      "category": "public-dialogue",
+      "status": "reported_activity",
+      "evidenceQuote": "our team organized an informational debate to educate our community on the science behind de-extinction.",
+      "collection": "historical",
+      "checkedOn": "2026-10-26"
+    }
+  ],
+  "categories": [
+    {
+      "id": "digital-interactive",
+      "label": "数字交互与自主学习",
+      "description": "互动平台、在线挑战、即时反馈与自主学习资源。"
+    },
+    {
+      "id": "hands-on-experiment",
+      "label": "动手实验与探究",
+      "description": "围绕明确概念开展可观察的实验，并检查学习者的理解。"
+    },
+    {
+      "id": "games",
+      "label": "游戏与角色扮演",
+      "description": "通过卡牌、桌游或任务规则组织参与和科学讨论。"
+    },
+    {
+      "id": "storytelling",
+      "label": "绘本与科学叙事",
+      "description": "借助故事、图像和角色，把科学问题讲给儿童或公众。"
+    },
+    {
+      "id": "inclusive-tactile",
+      "label": "包容性与触觉教学",
+      "description": "通过多感官表达和个别支持适配不同学习需求。"
+    },
+    {
+      "id": "public-dialogue",
+      "label": "公共讨论与科学伦理",
+      "description": "通过有依据的辩论和讨论理解科学选择及其影响。"
     }
   ]
 }

@@ -242,6 +242,7 @@ describe('agent native modeling tool loop', () => {
       return { content: '需要推进到设计批准。', toolCall: { id: 'call-2', name: 'workflow_advance', arguments: { stage: 'DESIGN_APPROVED' } } }
     })
     try {
+      current.store.setWorkflow({ currentStage: 'DESIGN_REVIEW', completedStages: ['DRAFT'] })
       const initialStage = current.store.workflow().currentStage
       const staged = await current.agent.chat('查看建模方法并推进工作流')
       expect(staged.workflow.currentStage).toBe(initialStage)

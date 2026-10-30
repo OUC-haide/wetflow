@@ -1,8 +1,17 @@
+import { WetFlowStore } from '../src/core/store.js'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { createServer } from '../src/server.js'
+import { createServer as createApp, type ServerOptions } from '../src/server.js'
+
+// Test servers must never inherit the developer's API key, consent or databases.
+function createServer(options: ServerOptions) {
+  const dir = dirname(options.dbPath!)
+  return createApp({ settingsPath: join(dir, 'model-settings.json'),
+    industrialSettingsPath: join(dir, 'industrial-settings.json'), industrialDbPath: join(dir, 'industrial.db'),
+    modelingDataDir: join(dir, 'modeling'), ...options })
+}
 
 const temporary: string[] = []
 
@@ -101,7 +110,7 @@ describe('WetFlow HTTP surface', () => {
       const created = await app.inject({ method: 'POST', url: '/api/conversations', payload: {} })
       expect(created.statusCode).toBe(200)
       expect(created.json().messages).toEqual([])
-      expect(created.json().workflow.currentStage).toBe('DESIGN_REVIEW')
+      expect(created.json().workflow.currentStage).toBe('DRAFT')
 
       const list = await app.inject({ method: 'GET', url: '/api/conversations' })
       expect(list.json().items).toHaveLength(2)
@@ -127,7 +136,7 @@ describe('WetFlow HTTP surface', () => {
       })
       expect(restored.statusCode).toBe(200)
       expect(restored.json().messages.length).toBeGreaterThan(0)
-      expect(restored.json().workflow.currentStage).toBe('DESIGN_REVIEW')
+      expect(restored.json().workflow.currentStage).toBe('DRAFT')
 
       const sent = await app.inject({ method: 'POST', url: '/api/chat', payload: { content: '原始用户消息' } })
       const userMessage = sent.json().messages.find((message: { role: string; content: string }) => message.role === 'user' && message.content === '原始用户消息')
@@ -137,8 +146,8 @@ describe('WetFlow HTTP surface', () => {
       expect(edited.statusCode).toBe(200)
       expect(edited.json().messages.find((message: { id: string }) => message.id === userMessage.id).content).toBe('修改后的用户消息')
       expect(edited.json().messages.at(-1).role).toBe('assistant')
-      expect(edited.json().messages.at(-1).content).toContain('当前工作流')
-      expect(edited.json().workflow.currentStage).toBe('DESIGN_REVIEW')
+      expect(edited.json().messages.at(-1).content).toContain('流程待定')
+      expect(edited.json().workflow.currentStage).toBe('DRAFT')
 
       const assistantMessage = edited.json().messages.find((message: { role: string }) => message.role === 'assistant')
       const forbidden = await app.inject({
@@ -171,6 +180,10 @@ describe('WetFlow HTTP surface', () => {
   it('serves one shared snapshot and drives approval through the API', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'wetflow-cordis-server-'))
     temporary.push(dir)
+    // Seed an already confirmed historical route for the approval API regression.
+    const legacy = new WetFlowStore(join(dir, 'wetflow.db'))
+    legacy.setWorkflow({ currentStage: 'DESIGN_REVIEW', completedStages: ['DRAFT'] })
+    legacy.close()
     const app = await createServer({ dbPath: join(dir, 'wetflow.db'), serveWeb: false })
     try {
       const health = await app.inject({ method: 'GET', url: '/health' })

@@ -1,4 +1,4 @@
-import {mkdtempSync,rmSync} from 'node:fs'
+import {mkdtempSync,rmSync,readdirSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 import {describe,it,expect} from 'vitest'
@@ -22,14 +22,15 @@ describe('release integration',()=>{
    expect((await app.inject('/api/industrial/telemetry')).json().items).toHaveLength(2)
   } finally {await app.close();rmSync(dir,{recursive:true,force:true})}
  })
- it('loads optional MD and Education tools in the web host and restores dependent tools',async()=>{
+ it('ships MD enabled, enables Education on demand and restores dependent tools',async()=>{
   const dir=mkdtempSync(join(tmpdir(),'wetflow-optional-tools-'))
   const app=await createServer({dbPath:join(dir,'core.db'),settingsPath:join(dir,'model.json'),industrialDbPath:join(dir,'industrial.db'),industrialSettingsPath:join(dir,'settings.json'),researchDbPath:join(dir,'research.db'),modelingDataDir:join(dir,'modeling'),serveWeb:false})
   const action=(id:string,verb:string)=>app.inject({method:'POST',url:`/api/plugins/${id}/${verb}`,payload:{}})
   try {
    const initial=(await app.inject('/api/plugins')).json()
-   expect(initial.plugins).toHaveLength(4);expect(initial.tools).toHaveLength(35);expect(initial.extensions).toHaveLength(2)
-   expect((await app.inject('/api/plugins/feed-comparison/probe')).statusCode).toBe(409)
+   expect(initial.plugins).toHaveLength(4);expect(initial.tools).toHaveLength(44);expect(initial.extensions).toHaveLength(6)
+   expect(initial.tools).toContain('local_file_read')
+   expect((await app.inject('/api/plugins/feed-comparison/probe')).statusCode).toBe(200)
    expect((await action('feed-comparison','load')).statusCode).toBe(200)
    const compared=await app.inject('/api/plugins/feed-comparison/probe')
    expect(compared.json().result.fractionChangePercentagePoints).toBe(-20)
@@ -37,7 +38,7 @@ describe('release integration',()=>{
    expect((await app.inject('/api/plugins/feed-comparison/probe')).statusCode).toBe(409)
    await action('education','load')
    const imported=await action('education','import-examples')
-   expect(imported.statusCode).toBe(200);expect(imported.json().imported).toBe(6)
+   expect(imported.statusCode).toBe(200);expect(imported.json().imported).toBe(readdirSync(new URL('../examples/education/sources/',import.meta.url)).filter(name=>name.endsWith('.md')).length)
    expect((await action('education','import-examples')).json().imported).toBe(0)
    const searched=(await app.inject('/api/plugins/education/probe')).json()
    expect(searched.result.items.length).toBeGreaterThan(0)

@@ -7,6 +7,7 @@ import { createWetFlowContext } from '../src/cordis.js'
 import { createWetFlowPlugins, PLUGIN_IDS } from '../src/plugins/index.js'
 import * as FeedPlugin from '../src/plugins/feed-comparison.js'
 import type { ModelResult, ModelTask } from '../src/modeling/types.js'
+import { WORKFLOW_STAGES } from '../src/core/types.js'
 
 // Reproducible engineering demonstrations. Fictional input records below are
 // explicitly fixtures, never measurements from the team's wet-lab project.
@@ -101,6 +102,14 @@ try {
   // D. The built-in Agent creates an actual approval proposal. The operator
   // decides it through the same public runtime method used by the workbench.
   ctx.wetflow.newProject('Design validation D — researcher review')
+  // Explicitly confirm the historical example route; new user runs start pending.
+  await plugins.load('workflow-planner')
+  const planProposal = { tool: 'workflow_set_plan', title: 'Confirm the example route',
+    summary: 'Use the documented historical stages for this reproducible approval example.',
+    payload: { stages: WORKFLOW_STAGES.map(stage => ({ ...stage })) } }
+  const planApproval = ctx.wetflow.store.createApproval({ title: planProposal.title, summary: planProposal.summary,
+    tool: planProposal.tool, risk: 'MEDIUM' }, planProposal)
+  await ctx.wetflow.decide(planApproval.id, 'approve')
   const initial = ctx.wetflow.store.workflow()
   const gap = expectRefusal(() => ctx.wetflow.store.advance('ASSAY'))
   const proposed = await ctx.wetflow.chat('Advance to the next stage', { model: 'builtin' })
