@@ -1,7 +1,12 @@
-# Heidelberg 2025: interactive learning platform
+# Heidelberg 2025: Heidelberg: explanation, practice and quiz
 
 Source: https://2025.igem.wiki/heidelberg/education
-Location: Interactive Learning Platform.
-Attribution: Heidelberg iGEM 2025; original page CC BY 4.0. This is a paraphrased source summary.
+Location: Interactive Learning Platform
+Checked: 2026-10-26. Attribution: Heidelberg iGEM 2025; source Wiki CC BY 4.0. Paraphrased summary.
+Resource status: published_resource. Category: digital-interactive.
 
-The team turned summer-school materials into an open learning platform combining illustrated protocols, calculators and module quizzes. They sought feedback from summer-school and school-workshop participants and subsequently added instructional laboratory videos. The platform serves advanced school students and undergraduates, both at home and alongside lab classes. For a classroom adaptation, short explanations, a worked example and an immediate quiz can accompany one selected task. This adaptation is our suggestion; the original report concerns Heidelberg's platform.
+Reported practice: Heidelberg combined illustrated protocols, calculators and quizzes; learner feedback informed the addition of laboratory videos.
+
+Reported reflection or evidence limit: The report links complementary formats to feedback from students and educators.
+
+New adaptation suggestion (WetFlow, not a source outcome): Follow one short illustrated explanation with a worked example and a check-for-understanding question.

@@ -2,7 +2,15 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { createServer } from '../src/server.js'
+import { createServer as createApp, type ServerOptions } from '../src/server.js'
+import { dirname } from 'node:path'
+
+function createServer(options: ServerOptions) {
+  const dir = dirname(options.dbPath!)
+  return createApp({ settingsPath: join(dir, 'model-settings.json'),
+    industrialSettingsPath: join(dir, 'industrial-settings.json'), industrialDbPath: join(dir, 'industrial.db'),
+    modelingDataDir: join(dir, 'modeling'), ...options })
+}
 const dirs:string[]=[]
 afterEach(()=>{for(const dir of dirs.splice(0))rmSync(dir,{recursive:true,force:true})})
 describe('research REST API',()=>{

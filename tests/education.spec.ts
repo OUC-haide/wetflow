@@ -2,11 +2,37 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { createEducationService, type EducationCard } from '../src/plugins/education.js'
 
-const cards = JSON.parse(readFileSync(new URL('../examples/education/education-library.json', import.meta.url), 'utf8')).cards as EducationCard[]
+const data = JSON.parse(readFileSync(new URL('../examples/education/education-library.json', import.meta.url), 'utf8'))
+const cards = data.cards as EducationCard[]
 const documents = [...new Set(cards.map(item => item.document))]
-const all = () => createEducationService(cards, () => documents)
+const all = () => createEducationService(cards, () => documents, undefined, { categories: data.categories })
 const input = { audience: 'secondary', durationMinutes: 60, learningGoal: 'Explain a waste-to-product manufacturing route', resources: ['paper'], caseIds: ['ouc-route-puzzle', 'heidelberg-platform'] }
 describe('Education extension', () => {
+  it('provides 1–2 attributed past teams per category and separates team resources', () => {
+    const catalogue = all().catalogue()
+    expect(catalogue.categories.length).toBe(6)
+    expect(catalogue.historicalCaseCount).toBe(8)
+    for (const group of catalogue.categories) {
+      const teams = new Set(group.cases.map(item => item.owner))
+      expect(teams.size).toBeGreaterThanOrEqual(1)
+      expect(teams.size).toBeLessThanOrEqual(2)
+      expect(group.cases.every(item => item.year < 2026 && item.url.startsWith('https://') && item.location)).toBe(true)
+    }
+    expect(all().search({}).items).toEqual([])
+    expect(all().search({ category: 'hands-on-experiment', collection: 'historical' }).items.map(item => item.owner).sort()).toEqual(['Barcelona-UB', 'DEPU'])
+    expect(() => all().search({ category: 'invented' })).toThrow('Unknown education category')
+  })
+  it('finds Chinese teaching topics and keeps published resources distinct from delivered events', () => {
+    expect(all().search({ query: '黏土', audience: 'primary' }).items.map(item => item.id)).toContain('buct-tactile')
+    expect(all().search({ query: '绘本', audience: 'primary' }).items.map(item => item.id)).toContain('nnu-rainbow-orchard')
+    expect(all().search({ category: 'hands-on-experiment' }).items.find(item => item.id === 'barcelona-dna-toolkit')?.status).toBe('published_resource')
+  })
+  it('uses built-in WEAVE without requiring the user to import a framework document', () => {
+    const service = createEducationService(cards, () => ['BUCT-2025-EDUCATION.md'])
+    const result = service.brief({ ...input, audience: 'primary', caseIds: ['buct-tactile'] })
+    expect(result.frameworkSource.builtIntoPlugin).toBe(true)
+    expect(result.weaveCycle.map(stage => stage.label)).toEqual(['思索', '探索', '落地', '核验', '回响'])
+  })
   it('only returns cases backed by evidence in the active run', () => {
     const result = createEducationService(cards, () => ['HEIDELBERG-2025-EDUCATION.md']).search({ query: 'classroom learning', audience: 'secondary' })
     expect(result.items.map(item => item.id)).toEqual(['heidelberg-platform'])

@@ -322,6 +322,16 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, select:focus-
 .composer__footer { min-height: 38px; padding: 4px 7px 6px 14px; display: flex; align-items: center; justify-content: space-between; }
 .composer__footer > span { color: var(--faint); font-size: 11px; }
 .composer__actions { display: flex; align-items: center; gap: 6px; }
+.attachment-button { display: inline-flex; align-items: center; gap: 5px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--paper); color: var(--ink-soft); font: inherit; font-size: 12px; cursor: pointer; }
+.attachment-button:hover { background: var(--shade); }
+.attachment-button:disabled { opacity: .5; cursor: wait; }
+.chat-attachments { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.chat-attachments--pending { padding: 4px 12px; }
+.chat-attachment { display: flex; align-items: center; gap: 8px; max-width: 240px; padding: 6px 9px; border: 1px solid var(--line); border-radius: 9px; background: var(--shade); color: var(--ink-soft); text-decoration: none; font-size: 12px; }
+.chat-attachment img { width: 54px; height: 54px; object-fit: contain; border-radius: 4px; background: white; }
+.chat-attachment span { overflow-wrap: anywhere; min-width: 0; }
+.chat-attachment > svg { flex-shrink: 0; }
+.chat-attachment button { display: inline-flex; flex-shrink: 0; padding: 3px; color: var(--muted); border: 0; background: transparent; cursor: pointer; }
 .approval-lock { display: inline-flex; align-items: center; gap: 5px; color: var(--accent-ink); }
 .composer-decision { min-height: 30px; padding: 5px 10px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--paper); font-size: 12px; font-weight: 560; }
 .composer-decision--reject { color: var(--muted); }
@@ -757,3 +767,10 @@ kbd { min-width: 18px; margin: 0 2px; padding: 1px 5px; color: var(--muted); bor
 .context-budget button { padding: 6px 12px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--shade); color: var(--ink); white-space: nowrap; cursor: pointer; }
 .context-budget small { display: block; margin-top: 5px; font-size: 11px; line-height: 1.5; color: var(--muted); }
 .context-budget small[role="alert"] { color: var(--danger); }
+
+.workflow-plan-pending { padding: 16px 20px; }
+.workflow-plan-pending__title { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.workflow-plan-pending__title span { margin-left: auto; opacity: .65; }
+.workflow-plan-pending p { font-size: 12px; line-height: 1.8; opacity: .7; margin: 12px 0; }
+.workflow-plan-pending .button { width: 100%; justify-content: center; }
+.approval-details--plan > p { white-space: pre-wrap; max-height: min(36vh, 360px); overflow-y: auto; }

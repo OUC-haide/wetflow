@@ -14,7 +14,16 @@ export const WORKFLOW_STAGES = [
   { key: 'CLOSED', label: '关闭', description: '经确认后归档项目' },
 ] as const
 
-export type WorkflowStageKey = typeof WORKFLOW_STAGES[number]['key']
+export type WorkflowStageKey = string
+export interface WorkflowStage {
+  key: WorkflowStageKey
+  label: string
+  description: string
+}
+export interface WorkflowPlan {
+  status: 'pending' | 'confirmed'
+  stages: WorkflowStage[]
+}
 export type WorkflowRunStatus = 'RUNNING' | 'WAITING_APPROVAL' | 'PAUSED' | 'COMPLETED'
 export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
 export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH'
@@ -31,6 +40,7 @@ export interface WorkflowSnapshot {
   pauseReason?: string
   updatedAt: string
   completedStages: WorkflowStageKey[]
+  plan?: WorkflowPlan
 }
 
 export interface ApprovalRequest {
@@ -47,6 +57,13 @@ export interface ApprovalRequest {
   resolvedAt?: string
 }
 
+export interface ChatAttachment {
+  id: string
+  name: string
+  path: string
+  kind: 'image' | 'pdf' | 'text'
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant' | 'system'
@@ -55,6 +72,7 @@ export interface ChatMessage {
   approvalId?: string
   /** Provider-returned reasoning for display; excluded from conversation context. */
   reasoningContent?: string
+  attachments?: ChatAttachment[]
 }
 
 export interface ConversationSummary {
@@ -78,6 +96,7 @@ export interface WorkflowRunSummary {
   projectId: string
   name: string
   currentStage: WorkflowStageKey
+  currentStageLabel?: string
   status: WorkflowRunStatus
   updatedAt: string
 }
@@ -229,6 +248,8 @@ export interface ToolDefinition<TInput = unknown, TOutput = unknown> {
    * Refused calls are never executed and are fed back to the model.
    */
   authorize?: (input: TInput, context: ToolAuthorizationContext) => string | undefined
+  /** Plugin-owned validation and exact preview before user approval. */
+  prepareProposal?: (input: TInput) => { payload: Record<string, unknown>; title: string; summary: string }
   execute(input: TInput, context?: ToolAuthorizationContext): Promise<TOutput> | TOutput
 }
 

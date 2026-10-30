@@ -25,6 +25,62 @@ async function harness() {
 }
 
 describe('Cordis domain plugin lifecycle', () => {
+  it('keeps WEAVE active on each request across runs and removes it with its dependency', async () => {
+    const { ctx, plugins } = await harness()
+    const requests: string[] = []
+    ctx.wetflow.setProvider({ models: async () => [{ id: 'test', label: 'Test' }], defaultModel: () => 'test',
+      complete: async context => { requests.push(context.instructions); return { content: 'fixture response' } } })
+    await ctx.wetflow.chat('帮我设计活动')
+    expect(requests.at(-1)).not.toContain('Education 插件已启用')
+    await plugins.load('evidence')
+    await plugins.load('education')
+    await plugins.load('education')
+    await ctx.wetflow.chat('给小学生设计一个活动')
+    expect(requests.at(-1)?.split('Education 插件已启用')).toHaveLength(2)
+    expect(requests.at(-1)).toContain('W—Wonder（思索）')
+    expect(requests.at(-1)).toContain('E—Echo（回响）')
+    const firstRun = ctx.wetflow.store.activeWorkflowRunId()
+    ctx.wetflowEvidence!.add('private-feedback.md', 'Private classroom feedback, current run only.')
+    const result = ctx.wetflow.tools.get('education_search_cases').execute({ category: 'storytelling' }) as { items: Array<{ citations: string[] }> }
+    expect(result.items).toHaveLength(1)
+    expect(result.items[0]?.citations.length).toBeGreaterThan(0)
+    const count = ctx.wetflowEvidence!.sources().length
+    ctx.wetflow.tools.get('education_search_cases').execute({})
+    expect(ctx.wetflowEvidence!.sources()).toHaveLength(count)
+    ctx.wetflow.newWorkflowRun('Another classroom')
+    expect(ctx.wetflowEvidence!.sources()).toEqual([])
+    await ctx.wetflow.chat('活动时间缩短为20分钟')
+    expect(requests.at(-1)).toContain('Education 插件已启用')
+    ctx.wetflow.tools.get('education_search_cases').execute({ category: 'storytelling' })
+    expect(ctx.wetflowEvidence!.sources().some(item => item.name === 'private-feedback.md')).toBe(false)
+    await plugins.unload('evidence')
+    await ctx.wetflow.chat('再看看材料')
+    expect(requests.at(-1)).not.toContain('Education 插件已启用')
+    await plugins.load('evidence')
+    await ctx.wetflow.chat('继续设计')
+    expect(requests.at(-1)).toContain('Education 插件已启用')
+    await plugins.unload('education')
+    await ctx.wetflow.chat('继续讨论')
+    expect(requests.at(-1)).not.toContain('Education 插件已启用')
+    ctx.wetflow.switchWorkflowRun(firstRun)
+    expect(ctx.wetflowEvidence!.sources().some(item => item.name === 'private-feedback.md')).toBe(true)
+  })
+
+  it('rolls back policy collisions and cannot remove a replacement through stale disposal', () => {
+    const registry = new ToolRegistry()
+    const first = registry.mount('first', staged => staged.registerInstructions('policy', 'First'))
+    expect(() => registry.mount('conflict', staged => {
+      staged.register({ name: 'must-not-leak', description: '', risk: 'LOW', approvalRequired: false, execute: () => null })
+      staged.registerInstructions('policy', 'Second')
+    })).toThrow('already registered')
+    expect(registry.has('must-not-leak')).toBe(false)
+    first()
+    const second = registry.mount('replacement', staged => staged.registerInstructions('policy', 'First'))
+    first()
+    expect(registry.instructions()).toBe('First')
+    second()
+    expect(registry.instructions()).toBe('')
+  })
   it('adds and removes each real tool group and its Cordis service without affecting others', async () => {
     const { ctx, plugins } = await harness()
     const baseline = plugins.snapshot().tools

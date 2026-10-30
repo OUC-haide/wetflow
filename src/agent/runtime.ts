@@ -1,10 +1,12 @@
 import { EventEmitter } from 'node:events'
 import type { AgentEvent, AgentSnapshot, AgentTurnStats, AgentTurnStatus, ApprovalRequest, ToolAuthorizationContext, ToolDefinition, ToolProposal } from '../core/types.js'
 import type { WetFlowStore } from '../core/store.js'
+import { workflowPlan, workflowStageLabel } from '../core/workflow.js'
 import { createWetFlowTools, proposalForMessage, type ToolRegistry } from './tools.js'
 import { composeModelContext, type ModelContextFrame } from './context.js'
 import { DEFAULT_CONTEXT_TOKEN_BUDGET, isContextTokenBudget } from './context-budget.js'
 import { EVIDENCE_RESPONSE_POLICY } from './evidence-policy.js'
+import { isVisualToolResult, MAX_MODEL_IMAGES, type ModelImage } from './media.js'
 import {
   WETFLOW_SYSTEM_PROMPT,
   toolParameterSchema,
@@ -149,9 +151,16 @@ export class WetFlowAgent {
   }
 
   async chat(content: string, options: ModelRequestOptions = {}): Promise<AgentSnapshot> {
-    const normalized = content.trim()
+    if (this.state === 'THINKING') throw new Error('请等待当前回复完成后再发送。')
+    if (options.attachments?.length) {
+      if (!this.tools.attachments) throw new Error('请先启用本地文件插件。')
+      this.tools.attachments.validate(options.attachments)
+    }
+    if (options.attachments?.length && (!this.provider || options.model === 'builtin')) throw new Error('文件问答需要在设置中连接模型；识图还需要所选模型支持视觉输入。')
+    if (options.attachments?.length && !this.options.allowDocumentExcerpts?.()) throw new Error('请先在设置中开启“允许向模型发送资料和附件内容”。')
+    const normalized = content.trim() || (options.attachments?.length ? '请查看我附上的文件。' : '')
     if (!normalized) throw new Error('消息不能为空。')
-    this.store.addMessage('user', normalized)
+    this.store.addMessage('user', normalized, undefined, undefined, options.attachments)
     this.state = 'THINKING'
     return this.respond(normalized, options)
   }
@@ -212,8 +221,10 @@ export class WetFlowAgent {
     }
 
     const workflow = await this.tools.get('workflow_status').execute({}) as AgentSnapshot['workflow']
-    const stageLabel = workflow.currentStage.replaceAll('_', ' ')
-    this.store.addMessage('assistant', `当前工作流「${workflow.name}」位于 ${stageLabel}，状态为 ${workflow.status}。你可以说“推进到下一步”“暂停一小时”或“唤醒工作流”。`)
+    const stageLabel = workflowStageLabel(workflow)
+    this.store.addMessage('assistant', workflowPlan(workflow).status === 'pending'
+      ? `「${workflow.name}」的流程待定。可以先说明研究目标、已有资料和准备开展的工作，与 Agent 商讨阶段安排；确认提案后，这里会显示对应路线。当前为内置演示模式，请连接模型后进行流程讨论。`
+      : `当前工作流「${workflow.name}」位于 ${stageLabel}，状态为 ${workflow.status}。你可以说“推进到下一步”“暂停一小时”或“唤醒工作流”。`)
     this.setTurn('answered', {})
     this.state = 'READY'
     return this.snapshot()
@@ -245,6 +256,7 @@ export class WetFlowAgent {
     const addResponse = (content: string, approvalId?: string) =>
       this.store.addMessage('assistant', content, approvalId, reasoning.join('\n\n'))
     const session: ModelSession = { messages: [], toolChoice: 'auto' }
+    const imageCache = new Map<string, ModelImage>()
     const authContext: ToolAuthorizationContext = { userMessage: normalized }
     let executions = 0
     let successes = 0
@@ -278,6 +290,20 @@ export class WetFlowAgent {
         const documentConsent = this.options.allowDocumentExcerpts?.() ?? false
         if (!documentConsent) session.messages = sanitizeModelSession(session.messages)
         const context = this.contextFrame(this.store.workflow(), normalized, documentConsent)
+        if (documentConsent && this.tools.attachments) {
+          const attachments = context.messages.flatMap(message => (message.attachments ?? [])
+            .filter(item => item.kind === 'image').map(item => ({ messageId: message.id, item }))).slice(-MAX_MODEL_IMAGES)
+          context.images = {}
+          for (const { messageId, item } of attachments) {
+            let image = imageCache.get(item.id)
+            if (!image) {
+              image = await this.tools.attachments.image(item)
+              if (image) imageCache.set(item.id, image)
+            }
+            if (image) (context.images[messageId] ??= []).push(image)
+          }
+          if (context.messages.length === 0) throw new Error('上下文预算不足以容纳当前消息及附件，请调高预算或减少附件。')
+        }
         if (documentConsent && !(this.options.allowDocumentExcerpts?.() ?? false)) {
           const notice = '文献片段发送已关闭，本轮已停止继续调用模型；本地资料仍保留。请重新发送问题。'
           addResponse(notice)
@@ -328,6 +354,7 @@ export class WetFlowAgent {
         const reference = assistantToolCalls[index]!
         const tool = this.findTool(call.name)
         let observation: string
+        let images: ModelImage[] | undefined
 
         if (!tool) {
           observation = `错误：未知工具 ${call.name}，未执行。`
@@ -338,17 +365,21 @@ export class WetFlowAgent {
           if (problems.length > 0) {
             observation = `错误：工具 ${call.name} 的参数无效（${problems.join('；')}），未执行。`
           } else if (tool.approvalRequired) {
-            const staged = this.stageApproval(tool, call, turn.content)
-            session.messages.push({
-              role: 'tool', toolCallId: reference.id, name: call.name,
-              content: `已生成待审批提案「${staged.title}」，未执行任何变更。`,
-            })
-            addResponse(`${staged.summary}\n\n这项操作需要你明确通过，我会在审批前保持工作流不变。`, staged.approval.id)
-            this.setTurn('approval_pending', {
-              toolExecutions: executions, toolSuccesses: successes, toolFailures: failures, modelTurns: turns, requestedToolCalls, toolBudgetReached, startedAt: startedWall,
-            })
-            this.state = 'WAITING'
-            return this.snapshot()
+            try {
+              const staged = this.stageApproval(tool, call, turn.content)
+              session.messages.push({
+                role: 'tool', toolCallId: reference.id, name: call.name,
+                content: `已生成待审批提案「${staged.title}」，未执行任何变更。`,
+              })
+              addResponse(`${staged.summary}\n\n这项操作需要你明确通过，我会在审批前保持工作流不变。`, staged.approval.id)
+              this.setTurn('approval_pending', {
+                toolExecutions: executions, toolSuccesses: successes, toolFailures: failures, modelTurns: turns, requestedToolCalls, toolBudgetReached, startedAt: startedWall,
+              })
+              this.state = 'WAITING'
+              return this.snapshot()
+            } catch (error) {
+              observation = `错误：操作提案未创建：${error instanceof Error ? error.message : String(error)}`
+            }
           } else {
             let refusal: string | undefined
             try {
@@ -376,7 +407,10 @@ export class WetFlowAgent {
                 successes += 1
                 const kind = tool.mutatesState === undefined ? '工具' : tool.mutatesState ? '写入工具' : '只读工具'
                 this.store.addActivity('message', '工具执行', `${kind} ${tool.name} 已执行`)
-                observation = observationContent(result)
+                if (isVisualToolResult(result)) {
+                  observation = observationContent(result.observation)
+                  images = result.images
+                } else observation = observationContent(result)
                 if (!(this.options.allowDocumentExcerpts?.() ?? false) && call.name.startsWith('research_')) {
                   observation = stripDocumentText(observation)
                 }
@@ -389,7 +423,7 @@ export class WetFlowAgent {
           }
         }
         if (executions >= maxExecutions) session.toolChoice = 'none'
-        session.messages.push({ role: 'tool', toolCallId: reference.id, name: call.name, content: observation })
+        session.messages.push({ role: 'tool', toolCallId: reference.id, name: call.name, content: observation, ...(images ? { images } : {}) })
       }
     }
 
@@ -453,9 +487,13 @@ export class WetFlowAgent {
     call: ModelToolCall,
     content: string,
   ): { approval: ApprovalRequest; title: string; summary: string } {
-    const title = approvalTitle(tool.name, call.arguments)
-    const summary = content.trim() || `Agent 请求调用 ${tool.name}，执行前需要人工确认。`
-    const proposal: ToolProposal = { tool: tool.name, title, summary, payload: call.arguments }
+    if (tool.name === 'workflow_advance' && workflowPlan(this.store.workflow()).status === 'pending') {
+      throw new Error('流程仍待定，请先与用户商讨并调用 workflow_set_plan，获得确认后才能推进。')
+    }
+    const prepared = tool.prepareProposal?.(call.arguments)
+    const title = prepared?.title ?? approvalTitle(tool.name, call.arguments)
+    const summary = prepared?.summary ?? (content.trim() || `Agent 请求调用 ${call.name}，执行前需要人工确认。`)
+    const proposal: ToolProposal = { tool: tool.name, title, summary, payload: prepared?.payload ?? call.arguments }
     const approval = this.store.createApproval({ title, summary, tool: tool.name, risk: tool.risk }, proposal)
     this.proposals.set(approval.id, proposal)
     return { approval, title, summary }
@@ -517,6 +555,7 @@ export class WetFlowAgent {
   private resultMessage(approval: ApprovalRequest, result: unknown): string {
     const workflow = result as Partial<AgentSnapshot['workflow']>
     if (approval.tool === 'workflow_pause') return `已通过并执行：${approval.title}。我会保持暂停，直到手动或定时唤醒。`
+    if (approval.tool === 'workflow_set_plan') return `流程路线已确认并保存。当前阶段为「${workflowStageLabel(this.store.workflow())}」，后续阶段推进仍需你确认。`
     if (approval.tool === 'workflow_advance') return `已通过并执行：${approval.title}。当前阶段为 ${workflow.currentStage ?? '下一阶段'}。`
     return `已通过并执行：${approval.title}。`
   }
@@ -531,13 +570,14 @@ export class WetFlowAgent {
     const messages = this.store.messagesForContext()
     const latestUserMessage = [...messages].reverse().find(message => message.role === 'user')
     const additionalContext = documentConsent ? this.options.additionalContext?.(workflow.id) ?? '' : ''
+    const pluginInstructions = this.tools.instructions()
     const privacyNote = documentConsent ? '' : '\n\n隐私设置：自动文档片段发送已关闭。不要调用需要读取或引用文献正文的工具；只可用来源标识与文献信息回答。用户本次直接输入的内容仍可作为问题上下文。'
     const contextOptions = {
-      instructions: `${SYSTEM_PROMPT}${privacyNote}${additionalContext ? `\n\n${additionalContext}` : ''}`,
+      instructions: `${SYSTEM_PROMPT}${pluginInstructions ? `\n\n${pluginInstructions}` : ''}${privacyNote}${additionalContext ? `\n\n${additionalContext}` : ''}`,
       workflow,
       conversationId: this.store.activeConversationId(),
       evidence: documentConsent ? this.searchEvidence(query ?? latestUserMessage?.content ?? '', 6) : [],
-      messages: documentConsent ? messages : (latestUserMessage ? [latestUserMessage] : []),
+      messages: documentConsent ? messages : (latestUserMessage ? [{ ...latestUserMessage, attachments: [] }] : []),
       // Match the provider request: full definitions include the JSON Schema
       // that actually consumes tokens. `risk` is a short extra label only.
       tools: this.tools.definitions(),
@@ -565,6 +605,7 @@ function normalizeToolCalls(turn: ModelTurn): ModelToolCall[] {
 
 const DOCUMENT_TEXT_FIELDS = new Set(['text', 'abstract', 'snippet', 'evidencequote', 'quote', 'body', 'fulltext', 'content'])
 const DOCUMENT_TOOL_BLOCKLIST = new Set([
+  'local_file_read',
   'education_search_cases', 'education_make_brief',
   'evidence_search','research_fetch_source', 'research_source_read', 'research_records', 'research_query', 'research_record_add'])
 
@@ -606,7 +647,7 @@ export function sanitizeToolArguments(serialized: string): string {
 
 function sanitizeModelSession(messages: ModelSession['messages']): ModelSession['messages'] {
   return messages.map(message => message.role === 'tool'
-    ? { ...message, content: stripDocumentText(message.content) }
+    ? { ...message, content: stripDocumentText(message.content), images: [] }
     : {
       ...message,
       content: '',
@@ -616,6 +657,7 @@ function sanitizeModelSession(messages: ModelSession['messages']): ModelSession[
 }
 
 function approvalTitle(name: string, args: Record<string, unknown>): string {
+  if (name === 'workflow_set_plan') return '确认流程路线'
   if (name === 'workflow_advance') return `推进工作流到 ${String(args.stage ?? '下一阶段')}`
   if (name === 'workflow_pause') return '暂停当前工作流'
   return `调用工具 ${name}`

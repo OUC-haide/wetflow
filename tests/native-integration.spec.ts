@@ -1,10 +1,13 @@
+import { WetFlowStore } from '../src/core/store.js'
 import { createServer as createHttpServer } from 'node:http'
 import { once } from 'node:events'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { createServer } from '../src/server.js'
+import { createCanvas } from '@napi-rs/canvas'
+import { pdfFixture } from './fixtures/pdf.js'
 
 /**
  * End-to-end tests over the real HTTP surface with a local fake
@@ -55,9 +58,14 @@ function toolCall(id: string, name: string, args: Record<string, unknown>): Fake
   return { role: 'assistant', content: '', tool_calls: [{ id, type: 'function', function: { name, arguments: JSON.stringify(args) } }] }
 }
 
-async function harness(baseURL: string) {
+async function harness(baseURL: string, legacyRoute = false) {
   const dir = mkdtempSync(join(tmpdir(), 'wetflow-native-integration-'))
   temporary.push(dir)
+  if (legacyRoute) {
+    const store = new WetFlowStore(join(dir, 'wetflow.db'))
+    store.setWorkflow({ currentStage: 'DESIGN_REVIEW', completedStages: ['DRAFT'] })
+    store.close()
+  }
   const app = await createServer({
     dbPath: join(dir, 'wetflow.db'),
     industrialDbPath: join(dir, 'industrial.db'),
@@ -73,8 +81,138 @@ async function harness(baseURL: string) {
   expect(saved.statusCode).toBe(200)
   const snapshot = await app.inject({ method: 'GET', url: '/api/snapshot' })
   const runId = (snapshot.json() as { workflow: { id: string } }).workflow.id
-  return { app, runId }
+  return { app, runId, dir }
 }
+
+describe('Education WEAVE over the provider HTTP boundary', () => {
+  it('sends the plugin framework on every tool-loop request and stops after unload', async () => {
+    const provider = await fakeProvider((_body, call) => call === 1
+      ? toolCall('education-search', 'education_search_cases', { category: 'storytelling', audience: 'primary' })
+      : call === 2 ? toolCall('education-brief', 'education_make_brief', {
+        audience: 'primary', durationMinutes: 30, learningGoal: 'Explain one environmental choice in a picture-book story',
+        resources: ['picture book'], caseIds: ['nnu-rainbow-orchard'],
+      }) : { role: 'assistant', content: 'fixture plan' })
+    const { app } = await harness(provider.baseURL)
+    await app.inject({ method: 'PATCH', url: '/api/privacy-settings', payload: { allowDocumentExcerpts: true } })
+    const loaded = await app.inject({ method: 'POST', url: '/api/plugins/education/load' })
+    expect(loaded.statusCode).toBe(200)
+    const catalogue = (await app.inject('/api/education/library')).json()
+    expect(catalogue.categories).toHaveLength(6)
+    const response = await app.inject({ method: 'POST', url: '/api/chat', payload: { content: '给小学生安排30分钟的绘本活动' } })
+    expect(response.statusCode).toBe(200)
+    expect(provider.calls).toHaveLength(3)
+    for (const body of provider.calls) {
+      const messages = body.messages as Array<{ role: string; content: string }>
+      expect(messages[0]?.role).toBe('system')
+      expect(messages[0]?.content).toContain('Education 插件已启用')
+      for (const word of ['Wonder（思索）', 'Explore（探索）', 'Action（落地）', 'Verify（核验）', 'Echo（回响）']) expect(messages[0]?.content).toContain(word)
+    }
+    const last = provider.calls[2]!.messages as Array<{ role: string; content: string }>
+    const brief = JSON.parse(last.filter(message => message.role === 'tool').at(-1)!.content)
+    expect(brief.weaveCycle).toHaveLength(5)
+    expect(brief.comparisons[0].source.citations.length).toBeGreaterThan(0)
+    expect(brief.comparisons[0].sourceStatus).toBe('published_resource')
+    await app.inject({ method: 'POST', url: '/api/plugins/education/unload' })
+    await app.inject({ method: 'POST', url: '/api/chat', payload: { content: '查看项目状态' } })
+    const after = provider.calls.at(-1)!.messages as Array<{ content: string }>
+    expect(after[0]?.content).not.toContain('Education 插件已启用')
+    expect((await app.inject('/api/education/library')).statusCode).toBe(409)
+  })
+})
+
+describe('local files and multimodal input over real HTTP', () => {
+  it('passes uploaded PDF text and page citations through the actual tool loop', async () => {
+    let path = ''
+    const provider = await fakeProvider((_body, call) => call === 1
+      ? toolCall('read-pdf', 'local_file_read', { path, mode: 'text' })
+      : { role: 'assistant', content: '已核对第 1 页。' })
+    const { app } = await harness(provider.baseURL)
+    await app.inject({ method: 'PATCH', url: '/api/privacy-settings', payload: { allowDocumentExcerpts: true } })
+    const uploaded = await app.inject({ method: 'POST', url: '/api/attachments',
+      payload: { name: 'feed-report.pdf', dataUrl: `data:application/pdf;base64,${pdfFixture(['Measured value 21.3 wt%', 'Second page']).toString('base64')}` } })
+    expect(uploaded.statusCode).toBe(200)
+    const attachment = uploaded.json() as { id: string; path: string }
+    path = attachment.path
+    const reply = await app.inject({ method: 'POST', url: '/api/chat', payload: { content: '读 PDF 第 1 页', attachmentIds: [attachment.id] } })
+    expect(reply.statusCode).toBe(200)
+    expect(reply.json().turn.toolSuccesses).toBe(1)
+    const messages = provider.calls[1]!.messages as Array<{ role: string; content: string }>
+    const result = JSON.parse(messages.find(message => message.role === 'tool')!.content)
+    expect(result.text).toContain('21.3 wt%')
+    expect(result.citation).toBe('[文件: feed-report.pdf#p1]')
+    expect(result.next).toEqual({ page: 2, offset: 0 })
+    const schemas = provider.calls[0]!.tools as Array<{ function: { name: string; parameters: { properties: Record<string, unknown> } } }>
+    expect(schemas.find(tool => tool.function.name === 'local_file_read')!.function.parameters.properties).toHaveProperty('mode')
+  })
+
+  it('preserves image attachments across reload and follow-up, and respects revoked consent', async () => {
+    const provider = await fakeProvider(() => ({ role: 'assistant', content: '图片已收到。' }))
+    const { app, dir } = await harness(provider.baseURL)
+    await app.inject({ method: 'PATCH', url: '/api/privacy-settings', payload: { allowDocumentExcerpts: true } })
+    const canvas = createCanvas(64, 64)
+    canvas.getContext('2d').fillRect(0, 0, 32, 32)
+    const uploaded = await app.inject({ method: 'POST', url: '/api/attachments',
+      payload: { name: '截图.png', dataUrl: `data:image/png;base64,${(await canvas.encode('png')).toString('base64')}` } })
+    expect(uploaded.statusCode).toBe(200)
+    const attachment = uploaded.json() as { id: string }
+    expect((await app.inject({ method: 'GET', url: `/api/attachments/${attachment.id}` })).headers['content-type']).toBe('image/png')
+    const reply = await app.inject({ method: 'POST', url: '/api/chat', payload: { content: '看图', attachmentIds: [attachment.id] } })
+    expect(reply.json().turn.status).toBe('answered')
+    const imageMessages = (call: number) => (provider.calls[call]!.messages as Array<{ content: unknown }>).flatMap(message => Array.isArray(message.content) ? message.content : [])
+    expect(imageMessages(0).find(part => part.type === 'image_url').image_url.url).toMatch(/^data:image\/jpeg;base64,/)
+    await app.close()
+    const reopened = await createServer({ dbPath: join(dir, 'wetflow.db'), industrialDbPath: join(dir, 'industrial.db'),
+      industrialSettingsPath: join(dir, 'industrial-settings.json'), settingsPath: join(dir, 'model-settings.json'), serveWeb: false })
+    closers.push(() => reopened.close())
+    const snapshot = (await reopened.inject({ method: 'GET', url: '/api/snapshot' })).json()
+    expect(snapshot.messages.find((message: { role: string }) => message.role === 'user').attachments[0].id).toBe(attachment.id)
+    await reopened.inject({ method: 'POST', url: '/api/chat', payload: { content: '再看一下上一张图' } })
+    expect(imageMessages(1).some(part => part.type === 'image_url')).toBe(true)
+    await reopened.inject({ method: 'PATCH', url: '/api/privacy-settings', payload: { allowDocumentExcerpts: false } })
+    const blocked = await reopened.inject({ method: 'POST', url: '/api/chat', payload: { content: '图片', attachmentIds: [attachment.id] } })
+    expect(blocked.statusCode).toBe(400)
+    await reopened.inject({ method: 'POST', url: '/api/chat', payload: { content: '只回答这句文字' } })
+    expect(imageMessages(2).some(part => part.type === 'image_url')).toBe(false)
+    expect(JSON.stringify(provider.calls[2])).not.toContain(attachment.id)
+  })
+
+  it('sends actual PDF page images after all parallel tool responses without base64 truncation', async () => {
+    let path = ''
+    const provider = await fakeProvider((_body, call) => call === 1 ? {
+      role: 'assistant', content: '', tool_calls: [
+        { id: 'read-image', type: 'function', function: { name: 'local_file_read', arguments: JSON.stringify({ path, mode: 'image' }) } },
+        { id: 'read-state', type: 'function', function: { name: 'workflow_status', arguments: '{}' } },
+      ],
+    } : { role: 'assistant', content: 'PDF 页面已查看。' })
+    const { app, dir } = await harness(provider.baseURL)
+    path = join(dir, 'chart.pdf')
+    writeFileSync(path, pdfFixture(['Chart caption']))
+    await app.inject({ method: 'PATCH', url: '/api/privacy-settings', payload: { allowDocumentExcerpts: true } })
+    const reply = await app.inject({ method: 'POST', url: '/api/chat', payload: { content: `查看 ${path}` } })
+    expect(reply.json().turn.toolSuccesses).toBe(2)
+    const messages = provider.calls[1]!.messages as Array<{ role: string; content: any; tool_call_id?: string; tool_calls?: unknown[] }>
+    const index = messages.findIndex(message => message.role === 'assistant' && message.tool_calls?.length)
+    expect(messages.slice(index + 1, index + 4).map(message => message.role)).toEqual(['tool', 'tool', 'user'])
+    expect(messages[index + 1]!.tool_call_id).toBe('read-image')
+    expect(messages[index + 2]!.tool_call_id).toBe('read-state')
+    expect(messages[index + 1]!.content).not.toContain('base64')
+    const image = messages[index + 3]!.content.find((part: { type: string }) => part.type === 'image_url')
+    expect(image.image_url.url).toMatch(/^data:image\/jpeg;base64,/)
+    expect(image.image_url.url).not.toContain('截断')
+  })
+
+  it('does not execute local file reads when document sharing is disabled', async () => {
+    const provider = await fakeProvider((_body, call) => call === 1
+      ? toolCall('blocked', 'local_file_read', { path: '/definitely/not/read.txt' })
+      : { role: 'assistant', content: '请开启资料发送。' })
+    const { app } = await harness(provider.baseURL)
+    const reply = await app.inject({ method: 'POST', url: '/api/chat', payload: { content: '读取本地文件' } })
+    expect(reply.json().turn.toolExecutions).toBe(0)
+    expect(JSON.stringify(provider.calls[1])).toContain('请先')
+    const tooMany = await app.inject({ method: 'POST', url: '/api/chat', payload: { content: '看图', attachmentIds: ['1', '2', '3', '4', '5'] } })
+    expect(tooMany.statusCode).toBe(400)
+  })
+})
 
 describe('native WetFlow multi-turn loop over real HTTP', () => {
   it('executes exactly 40 real tools, then asks the model for a final answer', async () => {
@@ -120,7 +258,7 @@ describe('native WetFlow multi-turn loop over real HTTP', () => {
         { id: 'call-after', type: 'function', function: { name: 'industrial_parameter_list', arguments: '{}' } },
       ],
     }))
-    const { app } = await harness(provider.baseURL)
+    const { app } = await harness(provider.baseURL, true)
     const initialStage = ((await app.inject({ method: 'GET', url: '/api/snapshot' })).json() as { workflow: { currentStage: string } }).workflow.currentStage
 
     const response = await app.inject({ method: 'POST', url: '/api/chat', payload: { content: '推进到下一步' } })

@@ -4,10 +4,11 @@ import type { ModelingService } from '../modeling/service.js'
 import type { ResearchService } from '../research/service.js'
 import type { IndustrialStore } from '../industrial/store.js'
 
-export type PluginId = 'evidence' | 'research' | 'modeling' | 'experiment' | 'feed-comparison' | 'education'
+export type PluginId = 'evidence' | 'research' | 'modeling' | 'experiment' | 'feed-comparison' | 'education' | 'local-files' | 'document-media' | 'workflow-planner' | 'batch-data'
 export const PLUGIN_IDS: PluginId[] = ['evidence', 'research', 'modeling', 'experiment']
-export const OPTIONAL_PLUGIN_IDS: PluginId[] = ['feed-comparison', 'education']
+export const OPTIONAL_PLUGIN_IDS: PluginId[] = ['feed-comparison', 'education', 'local-files', 'document-media', 'workflow-planner', 'batch-data']
 export const MANAGED_PLUGIN_IDS = [...PLUGIN_IDS, ...OPTIONAL_PLUGIN_IDS]
+export const DEFAULT_ENABLED_PLUGINS: PluginId[] = MANAGED_PLUGIN_IDS.filter(id => id !== 'education')
 export interface EvidenceService {
   sources: WetFlowStore['evidenceSources']
   search: WetFlowStore['searchEvidence']
@@ -20,6 +21,10 @@ export interface PluginFiber {
 }
 export interface WetFlowContext {
   wetflow: WetFlowAgent
+  wetflowBatchData?: import('../batch-data/store.js').BatchDataStore
+  wetflowPlanner?: { enabled: boolean }
+  wetflowLocalFiles?: ReturnType<typeof import('./local-files.js').createLocalFileService>
+  wetflowDocumentMedia?: { image(item: import('../core/types.js').ChatAttachment): Promise<import('../agent/media.js').ModelImage> }
   wetflowFeedComparison?: { summaryPath: string }
   wetflowEducation?: ReturnType<typeof import('./education.js').createEducationService>
   wetflowEvidence?: EvidenceService

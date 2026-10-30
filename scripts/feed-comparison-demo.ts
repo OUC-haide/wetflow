@@ -20,7 +20,8 @@ try {
   for (const id of PLUGIN_IDS) await plugins.load(id)
   const projectId = ctx.wetflow.store.activeWorkflowRunId()
   const baselineNames = ctx.wetflow.tools.list().map(tool => tool.name)
-  assert.equal(baselineNames.length, 35)
+  assert.ok(baselineNames.includes('workflow_status'))
+  assert.ok(baselineNames.includes('modeling_methods'))
   assert.equal(ctx.wetflow.tools.has('md_compare_feeds'), false)
   const fiber = await ctx.plugin(FeedComparisonPlugin, { summaryPath: source })
   const tool = ctx.wetflow.tools.get('md_compare_feeds')
@@ -30,10 +31,15 @@ try {
   const args = { baselineFeed: 1, comparisonFeed: 1.25 }
   const result = await tool.execute(args) as ReturnType<typeof FeedComparisonPlugin.compareFeeds> & { sourceFile: string }
   const executionMs = performance.now() - started
-  assert.deepEqual(result.rows.map(row => row.compatibleContacts), [10, 42, 50, 122, 24])
-  assert.deepEqual([result.baseline.closeContacts, result.comparison.closeContacts], [485, 462])
-  assert.deepEqual([result.baseline.compatibleFractionPercent, result.comparison.compatibleFractionPercent], [25.2, 5.2])
-  assert.equal(result.fractionChangePercentagePoints, -20)
+  // Fixed numerical expectations describe only the bundled study. Other
+  // compatible reports retain their own counts, windows and activation state.
+  if (!process.argv[2]) {
+    assert.deepEqual(result.rows.map(row => row.compatibleContacts), [10, 42, 50, 122, 24])
+    assert.deepEqual([result.baseline.closeContacts, result.comparison.closeContacts], [485, 462])
+    assert.deepEqual([result.baseline.compatibleFractionPercent, result.comparison.compatibleFractionPercent], [25.2, 5.2])
+    assert.equal(result.fractionChangePercentagePoints, -20)
+  }
+  assert.equal(ctx.wetflow.tools.list().length, baselineNames.length + 1)
   const loadedCount = ctx.wetflow.tools.list().length
   await fiber.dispose()
   assert.deepEqual(ctx.wetflow.tools.list().map(item => item.name), baselineNames)

@@ -6,6 +6,7 @@ import type {
   EvidenceChunk,
   WorkflowSnapshot,
 } from '../core/types.js'
+import { IMAGE_TOKEN_ESTIMATE, type ModelImage } from './media.js'
 
 export interface ContextTool {
   name: string
@@ -14,6 +15,7 @@ export interface ContextTool {
 }
 
 export interface ModelContextFrame {
+  images?: Record<string, ModelImage[]>
   instructions: string
   workflow: WorkflowSnapshot
   memory?: ConversationMemory
@@ -127,7 +129,9 @@ export function composeModelContext(options: ComposeModelContextOptions): ModelC
   for (let index = candidateMessages.length - 1; index >= 0; index -= 1) {
     const message = candidateMessages[index]
     if (!message) continue
-    const messageTokens = estimateTokens(message.content)
+    const attachmentTokens = message.attachments?.length
+      ? estimateTokens(JSON.stringify(message.attachments)) + message.attachments.filter(item => item.kind === 'image').length * IMAGE_TOKEN_ESTIMATE : 0
+    const messageTokens = estimateTokens(message.content) + attachmentTokens
     const remaining = messageBudget - selectedTokens
     if (messageTokens <= remaining) {
       selected.unshift(message)
@@ -135,9 +139,10 @@ export function composeModelContext(options: ComposeModelContextOptions): ModelC
       continue
     }
     if (selected.length === 0 && remaining > 0) {
-      const content = truncateToTokenBudget(message.content, remaining)
+      const content = truncateToTokenBudget(message.content, Math.max(0, remaining - attachmentTokens))
+      if (attachmentTokens >= remaining) break
       selected.unshift({ ...message, content })
-      selectedTokens += estimateTokens(content)
+      selectedTokens += estimateTokens(content) + attachmentTokens
     }
     break
   }

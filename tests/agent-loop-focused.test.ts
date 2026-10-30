@@ -60,6 +60,8 @@ function fixture(provider: ModelProvider, options: ConstructorParameters<typeof 
   const dir = mkdtempSync(join(tmpdir(), 'wetflow-loop-'))
   temporary.push(dir)
   const store = new WetFlowStore(join(dir, 'wetflow.db'))
+  // Existing approval scenarios use a recorded legacy route. New runs remain unplanned.
+  store.setWorkflow({ currentStage: 'DESIGN_REVIEW', completedStages: ['DRAFT'] })
   const agent = new WetFlowAgent(store, provider, options)
   disposers.push(() => {
     agent.dispose()

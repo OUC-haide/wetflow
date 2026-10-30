@@ -7,14 +7,18 @@ import './plugin-workspace.css'
 type Snapshot = ReturnType<WetFlowPlugins['snapshot']>
 type Step = { stage: string; time: string; snapshot: Snapshot; probe?: unknown }
 const descriptions: Record<PluginId, string> = {
-  evidence: 'Retrieve imported files and cited excerpts.',
+  evidence: '检索当前项目已导入的资料，返回带来源引用的文本片段。',
+  'local-files': '读取本地文本文件、接收聊天附件，按位置引用；停用后文件读取工具与上传入口一同关闭。',
+  'document-media': '扩展本地文件插件，支持 PDF 逐页提取、扫描页和图片视觉输入。依赖本地文件插件。',
+  'workflow-planner': '与用户商讨阶段安排，提出流程路线并在用户审批后保存；已有路线保留。',
+  'batch-data': '按轮次和批次积累数据，保留精确数值、单位与来源；支持对比、导入预览和修正历史。',
   research: 'Search literature, read sources and query records.',
   modeling: 'Run numerical models and inspect their results.',
   experiment: 'Read experiment parameters and record observations.',
   'feed-comparison': 'Compare saved MD contact reports; this extension does not run new MD simulations.',
-  education: 'Search attributed education cases and prepare a WEAVE design brief.',
+  education: '启用后持续遵循 WEAVE：思索、探索、落地、核验、回响。按类型检索往年团队案例，结合受众与资源规划活动。',
 }
-const icons = { evidence: FileSearch, research: Database, modeling: FlaskConical, experiment: Plug, 'feed-comparison': FlaskConical, education: FileSearch }
+const icons = { 'local-files': FileSearch, 'document-media': FileSearch, 'workflow-planner': Plug, 'batch-data': Database, evidence: FileSearch, research: Database, modeling: FlaskConical, experiment: Plug, 'feed-comparison': FlaskConical, education: FileSearch }
 async function request<T>(url: string, method = 'GET'): Promise<T> {
   const response = await fetch(url, { method })
   const body = await response.json()
@@ -22,7 +26,7 @@ async function request<T>(url: string, method = 'GET'): Promise<T> {
   return body as T
 }
 
-export function PluginWorkspace() {
+export function PluginWorkspace({ onChange }: { onChange?: () => void } = {}) {
   const [snapshot, setSnapshot] = useState<Snapshot>()
   const [steps, setSteps] = useState<Step[]>([])
   const [busy, setBusy] = useState(false)
@@ -38,6 +42,7 @@ export function PluginWorkspace() {
     try {
       const next = await request<Snapshot>(`/api/plugins/${id}/${action}`, 'POST')
       setSnapshot(next)
+      onChange?.()
       setSteps(old => [...old, { stage: `${action === 'load' ? 'Loaded' : 'Unloaded'} ${id}`, time: new Date().toISOString(), snapshot: next }].slice(-12))
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)) }
     finally { setBusy(false) }
@@ -51,6 +56,7 @@ export function PluginWorkspace() {
       setProbe(result)
       const next = await request<Snapshot>('/api/plugins')
       setSnapshot(next)
+      onChange?.()
       setSteps(old => [...old, { stage: response.ok ? 'Tool call succeeded' : 'Tool unavailable', time: new Date().toISOString(), snapshot: next, probe: result }].slice(-12))
     } catch (cause) { setError(String(cause)) }
     finally { setBusy(false) }
@@ -68,13 +74,26 @@ export function PluginWorkspace() {
       <div className="plugin-modules"><h2>Plugins</h2><p className="plugin-help">Each module owns its tools and service.</p>
         {modules.map(item => { const Icon = icons[item.id]; return <article className={`plugin-module ${item.id === 'modeling' ? 'plugin-module--focus' : ''}`} key={item.id}>
           <div className="plugin-module-title"><Icon size={19} /><h3>{item.name}</h3><span className={`plugin-status ${item.loaded ? 'is-loaded' : ''}`}>{item.loaded ? 'Loaded' : item.enabled ? 'Waiting for dependency' : 'Unloaded'}</span></div>
-          <p>{descriptions[item.id]}</p>
+          <p>{descriptions[item.id]}</p>{!!item.dependencies.length && <small className="plugin-help">依赖：{item.dependencies.join(", ")}</small>}
+          {item.id === 'education' && item.loaded && snapshot?.education && <div className="education-library">
+            <strong>WEAVE 全局教育规划规则已启用</strong>
+            <p>每轮规划持续生效 · {snapshot.education.categories.length} 类 · {snapshot.education.historicalCaseCount} 个往年案例</p>
+            <details><summary>查看分类与来源</summary>
+              {snapshot.education.categories.map(group => <div key={group.id} className="education-category">
+                <strong>{group.label}</strong>
+                <p>{group.cases.map((entry, index) => <span key={entry.id}>
+                  {index > 0 ? ' · ' : ''}<a href={entry.url} target="_blank" rel="noreferrer">{entry.owner} {entry.year}</a>
+                </span>)}</p>
+              </div>)}
+            </details>
+            <p>往年案例在首次检索时自动加入当前项目；下面按钮可另行导入本队资源。</p>
+          </div>}
           {item.id === 'education' && item.loaded && <button disabled={busy} onClick={async () => {
             setBusy(true); setError('')
             try { await request('/api/plugins/education/import-examples', 'POST'); await refresh() }
             catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)) }
             finally { setBusy(false) }
-          }}>Import education example sources</button>}{(item.id === 'education' || item.id === 'feed-comparison') && item.loaded && <>
+          }}>导入本队与教育示例资料</button>}{(item.id === 'education' || item.id === 'feed-comparison') && item.loaded && <>
             <button disabled={busy} onClick={async () => {
               setBusy(true); setError('')
               try { const result = await request(`/api/plugins/${item.id}/probe`); setExampleResults(old => ({ ...old, [item.id]: result })) }
