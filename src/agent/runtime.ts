@@ -573,6 +573,7 @@ export class WetFlowAgent {
     const pluginInstructions = this.tools.instructions()
     const privacyNote = documentConsent ? '' : '\n\n隐私设置：自动文档片段发送已关闭。不要调用需要读取或引用文献正文的工具；只可用来源标识与文献信息回答。用户本次直接输入的内容仍可作为问题上下文。'
     const contextOptions = {
+      pluginContext: this.tools.contexts(),
       instructions: `${SYSTEM_PROMPT}${pluginInstructions ? `\n\n${pluginInstructions}` : ''}${privacyNote}${additionalContext ? `\n\n${additionalContext}` : ''}`,
       workflow,
       conversationId: this.store.activeConversationId(),

@@ -28,7 +28,8 @@ describe('release integration',()=>{
   const action=(id:string,verb:string)=>app.inject({method:'POST',url:`/api/plugins/${id}/${verb}`,payload:{}})
   try {
    const initial=(await app.inject('/api/plugins')).json()
-   expect(initial.plugins).toHaveLength(4);expect(initial.tools).toHaveLength(44);expect(initial.extensions).toHaveLength(6)
+   expect(initial.plugins).toHaveLength(4);expect(initial.tools).toHaveLength(47);expect(initial.extensions).toHaveLength(6)
+   expect(initial.tools).toContain('batch_data_overview')
    expect(initial.tools).toContain('local_file_read')
    expect((await app.inject('/api/plugins/feed-comparison/probe')).statusCode).toBe(200)
    expect((await action('feed-comparison','load')).statusCode).toBe(200)

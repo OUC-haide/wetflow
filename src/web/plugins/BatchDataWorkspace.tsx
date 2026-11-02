@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowLeft, ArrowLeftRight, Check, ChevronRight, Database, Download, History, Layers3, LoaderCircle, Plus, RefreshCw, Search, Upload, X } from 'lucide-react'
-import type { Catalogue, Comparison, ImportPreview, Observation, RecordPage, Revision } from '../../batch-data/types.js'
+import type { Catalogue, Comparison, Observation, RecordPage, Revision } from '../../batch-data/types.js'
 import './batch-data.css'
+import { BatchFileImport } from './BatchFileImport.js'
+import type { ManagementEntry } from '../../batch-data/management.js'
 
-type Modal = 'round' | 'batch' | 'metric' | 'record' | 'import' | 'history' | null
+type Modal = 'round' | 'batch' | 'metric' | 'record' | 'import' | 'history' | 'management' | null
 const empty: Catalogue = { rounds: [], batches: [], metrics: [], recordCount: 0 }
 function download(name: string, value: string) {
   const url = URL.createObjectURL(new Blob([value], { type: 'text/csv;charset=utf-8' }))
@@ -21,8 +23,8 @@ export function BatchDataWorkspace({ projectId, projectName, onClose }: { projec
   const [error, setError] = useState(''), [notice, setNotice] = useState('')
   const [modal, setModal] = useState<Modal>(null)
   const [round, setRound] = useState(''), [recordMetric, setRecordMetric] = useState('')
-  const [csv, setCsv] = useState(''), [preview, setPreview] = useState<ImportPreview | null>(null)
   const [record, setRecord] = useState<Observation | null>(null), [history, setHistory] = useState<Revision[]>([])
+  const [managementHistory, setManagementHistory] = useState<ManagementEntry[]>([])
   const [compareMode, setCompareMode] = useState(false), [rightId, setRightId] = useState('')
   const [comparison, setComparison] = useState<Comparison | null>(null)
   const [revision, setRevision] = useState(0)
@@ -66,7 +68,7 @@ export function BatchDataWorkspace({ projectId, projectName, onClose }: { projec
   const batch = catalog.batches.find(b => b.id === selected)
   const selectedRound = catalog.rounds.find(r => r.id === batch?.roundId)
   const metricInfo = catalog.metrics.find(m => m.id === recordMetric)
-  const open = (name: Modal) => { setError(''); setNotice(''); setRound(selectedRound?.id || catalog.rounds[0]?.id || ''); setRecordMetric(catalog.metrics[0]?.id || ''); setCsv(''); setPreview(null); setModal(name) }
+  const open = (name: Modal) => { setError(''); setNotice(''); setRound(selectedRound?.id || catalog.rounds[0]?.id || ''); setRecordMetric(catalog.metrics[0]?.id || ''); setModal(name) }
   const act = async (f: () => Promise<void>) => {
     setBusy(true); setError(''); setNotice('')
     try { await f() } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)) }
@@ -98,7 +100,7 @@ export function BatchDataWorkspace({ projectId, projectName, onClose }: { projec
   const batchName = (id: string) => { const b = catalog.batches.find(b => b.id === id); const r = catalog.rounds.find(r => r.id === b?.roundId); return `第 ${r?.number ?? '?'} 轮 / ${b?.code ?? ''} ${b?.name ?? ''}` }
   return <section className="batch-workspace" aria-label="多批次数据库">
     <header className="batch-heading"><div className="batch-heading-title"><Database size={23}/><div><h1>多批次数据</h1><p>{projectName} <span>按轮次积累，按来源核对</span></p></div></div>
-      <div className="batch-actions"><button disabled={busy} onClick={() => setRevision(v => v + 1)} aria-label="刷新数据库"><RefreshCw size={15}/></button><button onClick={onClose}><ArrowLeft size={15}/>返回对话</button></div></header>
+      <div className="batch-actions"><button disabled={busy} onClick={() => void act(async () => { setManagementHistory(await request<ManagementEntry[]>('/management-history?limit=20')); setModal('management') })}><History size={15}/>整理记录</button><button disabled={busy} onClick={() => setRevision(v => v + 1)} aria-label="刷新数据库"><RefreshCw size={15}/></button><button onClick={onClose}><ArrowLeft size={15}/>返回对话</button></div></header>
     {error && <p className="batch-feedback is-error" role="alert">{error}</p>}
     {notice && <p className="batch-feedback" role="status"><Check size={14}/>{notice}</p>}
     <div className="batch-layout">
@@ -125,11 +127,11 @@ export function BatchDataWorkspace({ projectId, projectName, onClose }: { projec
             <div className="batch-actions"><button onClick={() => open('metric')}><Plus size={14}/>定义指标</button><button disabled={busy} onClick={() => void act(async () => { const result = await request<{ csv: string }>('/export?batchId=' + selected); download(`batch-${batch.code}.csv`, result.csv) })}><Download size={14}/>导出</button></div></div>
           {!compareMode ? <>
             <div className="batch-filters"><label>指标<select value={metric} onChange={e => { setMetric(e.target.value); setOffset(0) }}><option value="">全部指标</option>{catalog.metrics.map(m => <option key={m.id} value={m.id}>{m.name} ({m.unit || '无量纲'})</option>)}</select></label><label>采样点<input aria-label="精确筛选采样点" placeholder="完整名称" value={sample} onChange={e => { setSample(e.target.value); setOffset(0) }}/></label>
-              <div className="batch-actions"><button disabled={!catalog.metrics.length} onClick={() => open('import')}><Upload size={14}/>导入 CSV</button><button className="batch-primary" disabled={!catalog.metrics.length} onClick={() => open('record')}><Plus size={14}/>录入数据</button></div></div>
+              <div className="batch-actions"><button disabled={!catalog.metrics.length} onClick={() => open('import')}><Upload size={14}/>导入文件</button><button className="batch-primary" disabled={!catalog.metrics.length} onClick={() => open('record')}><Plus size={14}/>录入数据</button></div></div>
             {!catalog.metrics.length && <div className="batch-inline-empty">先<button onClick={() => open('metric')}>定义指标和单位</button>，再录入或导入本批次数据。</div>}
             <div className="batch-table-wrap"><table><thead><tr><th>采样点</th><th>指标</th><th className="batch-number">原始值</th><th>单位</th><th>来源与位置</th><th>状态</th><th>版本</th></tr></thead><tbody>
               {page.items.map(item => <tr key={item.id}><td><strong>{item.sample}</strong>{item.sampledAt && <small>{item.sampledAt}</small>}</td><td>{metricName(item.metricId)}</td><td className="batch-number">{item.value}</td><td>{item.unit || '—'}</td><td><span>{item.source}</span><small>{item.locator || '未标注位置'}</small></td><td><span className={`batch-status ${item.deviation ? 'is-deviation' : ''}`}>{item.deviation ? '偏差待复核' : '已记录'}</span></td><td><button className="batch-history" disabled={busy} aria-label={`查看 ${item.sample} ${metricName(item.metricId)} 历史`} onClick={() => showHistory(item)}><History size={13}/>v{item.revision}</button></td></tr>)}
-            </tbody></table>{!page.items.length && <div className="batch-inline-empty">{sample || metric ? '没有符合当前筛选条件的记录。' : '本批次还没有数据。可以手动录入，也可以预览并导入 CSV。'}</div>}</div>
+            </tbody></table>{!page.items.length && <div className="batch-inline-empty">{sample || metric ? '没有符合当前筛选条件的记录。' : '本批次还没有数据。可以手动录入，也可以预览并导入 CSV、Excel 或 PDF。'}</div>}</div>
             <div className="batch-pagination"><span>共 {page.total} 条{page.total ? `，当前 ${offset + 1}–${offset + page.items.length}` : ''}</span><div><button disabled={!offset} onClick={() => setOffset(v => Math.max(0, v - 100))}>上一页</button><button disabled={offset + 100 >= page.total} onClick={() => setOffset(v => v + 100)}>下一页</button></div></div>
           </> : <>
             <div className="batch-compare-picker"><label>基准批次<strong>{batchName(selected)}</strong></label><ArrowLeftRight size={18}/><label>对比批次<select aria-label="对比批次" value={rightId} onChange={e => { setRightId(e.target.value); setComparison(null) }}><option value="">选择另一个批次</option>{catalog.batches.filter(b => b.id !== selected).map(b => <option key={b.id} value={b.id}>{batchName(b.id)}</option>)}</select></label><button className="batch-primary" disabled={busy || !rightId || rightId === selected} onClick={() => void act(async () => setComparison(await request<Comparison>(`/compare?leftId=${selected}&rightId=${rightId}`)))}>对比数据</button></div>
@@ -139,7 +141,7 @@ export function BatchDataWorkspace({ projectId, projectName, onClose }: { projec
         </>}
       </div>
     </div>
-    {modal && <div className="batch-modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget && !busy) setModal(null) }}><div className="batch-modal" role="dialog" aria-modal="true" aria-labelledby="batch-modal-title" ref={modalRef} onKeyDown={e => {
+    {modal && <div className="batch-modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget && !busy) setModal(null) }}><div className={`batch-modal${modal === 'import' ? ' batch-modal--import' : ''}`} role="dialog" aria-modal="true" aria-labelledby="batch-modal-title" ref={modalRef} onKeyDown={e => {
       if (e.key === 'Escape' && !busy) setModal(null)
       if (e.key === 'Tab') {
         const nodes = [...e.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled)')]
@@ -147,12 +149,9 @@ export function BatchDataWorkspace({ projectId, projectName, onClose }: { projec
         if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus() }
         else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus() }
       }
-    }}><header><h2 id="batch-modal-title">{{ round: '建立新一轮', batch: '添加批次', metric: '定义指标', record: '录入采样数据', import: '预览并导入 CSV', history: '记录与修正历史' }[modal]}</h2><button disabled={busy} onClick={() => setModal(null)} aria-label="关闭数据窗口"><X size={18}/></button></header>
+    }}><header><h2 id="batch-modal-title">{{ round: '建立新一轮', batch: '添加批次', metric: '定义指标', record: '录入采样数据', import: '预览并导入文件', history: '记录与修正历史', management: '数据库整理记录' }[modal]}</h2><button disabled={busy} onClick={() => setModal(null)} aria-label="关闭数据窗口"><X size={18}/></button></header>
       {error && <p className="batch-feedback is-error" role="alert">{error}</p>}
-      {modal === 'import' ? <div className="batch-form"><p>先定义 CSV 中使用的指标。列名为 sample, metric, value, unit, source, locator, sampledAt, note；前五列必填。sampledAt 使用带时区的 ISO 时间，可留空。</p><div className="batch-actions"><button onClick={() => download('batch-import-template.csv', 'sample,metric,value,unit,source,locator,sampledAt,note\r\n')}><Download size={14}/>下载空模板</button><label className="batch-file">选择 CSV<input type="file" accept=".csv,text/csv" aria-label="选择 CSV 文件" onChange={e => { const f = e.target.files?.[0]; if (f) void act(async () => { if (f.size > 1000000) throw new Error('CSV 最多 1 MB。'); setCsv(await f.text()); setPreview(null) }) }}/></label></div>
-        <label>CSV 内容<textarea rows={9} value={csv} onChange={e => { setCsv(e.target.value); setPreview(null) }}/></label>
-        {preview && <div className="batch-import-preview"><strong>新增 {preview.newCount} · 重复 {preview.duplicateCount} · 错误 {preview.errorCount}</strong><div>{preview.rows.map(row => <p key={row.line} className={row.status === 'error' ? 'is-error' : ''}>第 {row.line} 行：{row.message}</p>)}</div></div>}
-        <footer><button disabled={busy || !csv} onClick={() => void act(async () => setPreview(await request<ImportPreview>('/import/preview', { batchId: selected, csv })))}>校验预览</button><button className="batch-primary" disabled={busy || !preview || !!preview.errorCount || !preview.newCount} onClick={() => void act(async () => { const result = await request<{ inserted: number; skipped: number }>('/import', { batchId: selected, csv }); setNotice(`已导入 ${result.inserted} 条，跳过 ${result.skipped} 条重复记录。`); setModal(null); setRevision(v => v + 1) })}>确认导入</button></footer></div> : <form className="batch-form" onSubmit={e => void submit(e)}>
+      {modal === 'management' ? <div className="batch-form batch-management-history"><p>显示最近 20 次已执行的整理。每次均保留修改前后内容及原因。</p>{!managementHistory.length && <p>暂无已执行的整理。你可以在对话中让 Agent 提交整理方案，审批通过后会在这里留存。</p>}{managementHistory.map(entry => <article key={entry.id}><strong>{entry.reason}</strong><p>{new Date(entry.at).toLocaleString('zh-CN')} · {entry.changes.length} 项变更 · {entry.actor === 'agent-approved' ? 'Agent 提议，用户批准' : entry.actor}</p>{entry.changes.map((change, i) => <pre key={i}>{change.summary}</pre>)}</article>)}</div> : modal === 'import' ? <BatchFileImport batchId={selected} metrics={catalog.metrics} request={request} onComplete={result => { setNotice(`已导入 ${result.inserted} 条，跳过 ${result.skipped} 条重复记录。`); setModal(null); setRevision(v => v + 1) }}/> : <form className="batch-form" onSubmit={e => void submit(e)}>
         {modal === 'round' && <><label>轮次编号<input name="number" type="number" min="1" required defaultValue={Math.max(0, ...catalog.rounds.map(r => r.number)) + 1}/></label><label>轮次名称<input name="name" required maxLength={120} placeholder="本轮要做什么"/></label><label>说明<textarea name="note" rows={3} maxLength={2000}/></label></>}
         {modal === 'batch' && <><label>所属轮次<select value={round} onChange={e => setRound(e.target.value)} required><option value="">请选择轮次</option>{catalog.rounds.map(r => <option key={r.id} value={r.id}>第 {r.number} 轮 · {r.name}</option>)}</select></label><label>批次编号<input name="code" required maxLength={120} placeholder="例如 B-01"/></label><label>批次名称<input name="name" required maxLength={120}/></label><label>本批条件与说明<textarea name="conditions" rows={4} maxLength={2000} placeholder="填写本批次的条件，方便之后对照"/></label></>}
         {modal === 'metric' && <><label>指标代码<input name="code" required pattern="[A-Za-z][A-Za-z0-9_-]{0,39}" placeholder="例如 TEMP"/></label><label>显示名称<input name="name" required maxLength={120}/></label><label>固定单位<input name="unit" maxLength={40} placeholder="例如 °C；无量纲可留空"/></label><div className="batch-form-row"><label>正常下限<input name="lower" inputMode="decimal" placeholder="可选"/></label><label>正常上限<input name="upper" inputMode="decimal" placeholder="可选"/></label></div><p>单位确定后，每次写入都会校验。超出正常范围的读数保留原值，并标记供复核。</p></>}

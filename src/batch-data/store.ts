@@ -5,6 +5,9 @@ import { DatabaseSync } from 'node:sqlite'
 import { batchSchema, correctionSchema, metricSchema, recordSchema, roundSchema } from './types.js'
 import type { Batch, Catalogue, Comparison, ImportPreview, Metric, Observation, RecordPage, Revision, Round } from './types.js'
 import { CSV_HEADERS, parseCsv, writeCsv } from './csv.js'
+import { managementRequestSchema, preparedManagementSchema, describeManagementChange, appendManagementNote } from './management.js'
+import type { ManagementChange, ManagementEntry, ManagementRequest } from './management.js'
+import { overviewSchema, overviewTable, type OverviewRow } from './overview.js'
 
 const uid = () => randomUUID()
 const now = () => new Date().toISOString()
@@ -38,8 +41,17 @@ export class BatchDataStore {
       CREATE TABLE IF NOT EXISTS revisions(record_id TEXT NOT NULL REFERENCES records(id), revision INTEGER NOT NULL, project_id TEXT NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(record_id,revision));
       CREATE INDEX IF NOT EXISTS records_project ON records(project_id,batch_id,metric_id);
       CREATE INDEX IF NOT EXISTS revisions_project ON revisions(project_id,record_id);`)
+    this.db.exec(`CREATE TABLE IF NOT EXISTS project_revisions(project_id TEXT PRIMARY KEY, revision INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS management_history(id TEXT PRIMARY KEY, project_id TEXT NOT NULL, payload TEXT NOT NULL);
+      CREATE INDEX IF NOT EXISTS management_project ON management_history(project_id);`)
   }
   close() { this.db.close() }
+  private changed(project: string) {
+    this.db.prepare('INSERT INTO project_revisions VALUES(?,1) ON CONFLICT(project_id) DO UPDATE SET revision=revision+1').run(project)
+  }
+  private revision(project: string): number {
+    return (this.db.prepare('SELECT revision FROM project_revisions WHERE project_id=?').get(project) as { revision: number } | undefined)?.revision ?? 0
+  }
   private transaction<T>(f: () => T): T {
     this.db.exec('BEGIN IMMEDIATE')
     try { const value = f(); this.db.exec('COMMIT'); return value } catch (error) { this.db.exec('ROLLBACK'); throw error }
@@ -63,6 +75,7 @@ export class BatchDataStore {
     if (this.db.prepare('SELECT id FROM rounds WHERE project_id=? AND number=?').get(project, input.number)) throw new Error('该轮次编号已存在。')
     const item: Round = { ...input, id: uid(), projectId: project, runId: run, createdAt: now() }
     this.db.prepare('INSERT INTO rounds VALUES(?,?,?,?)').run(item.id, project, item.number, JSON.stringify(item))
+    this.changed(project)
     return item
   }
   addBatch(project: string, run: string, raw: unknown): Batch {
@@ -70,6 +83,7 @@ export class BatchDataStore {
     if (this.db.prepare('SELECT id FROM batches WHERE project_id=? AND round_id=? AND code=?').get(project, input.roundId, input.code)) throw new Error('该轮次中的批次编号已存在。')
     const item: Batch = { ...input, id: uid(), projectId: project, runId: run, createdAt: now() }
     this.db.prepare('INSERT INTO batches VALUES(?,?,?,?,?)').run(item.id, project, input.roundId, input.code, JSON.stringify(item))
+    this.changed(project)
     return item
   }
   addMetric(project: string, raw: unknown): Metric {
@@ -78,6 +92,7 @@ export class BatchDataStore {
     if (this.db.prepare('SELECT id FROM metrics WHERE project_id=? AND code=?').get(project, input.code)) throw new Error('该指标代码已存在。')
     const item: Metric = { ...input, id: uid(), projectId: project }
     this.db.prepare('INSERT INTO metrics VALUES(?,?,?,?)').run(item.id, project, input.code, JSON.stringify(item))
+    this.changed(project)
     return item
   }
   private validate(project: string, raw: unknown) {
@@ -102,6 +117,7 @@ export class BatchDataStore {
     const item: Observation = { ...input, id: uid(), projectId: project, runId: run, deviation, revision: 1, createdAt: timestamp, updatedAt: timestamp }
     this.db.prepare('INSERT INTO records VALUES(?,?,?,?,?,?,?)').run(item.id, project, item.batchId, item.metricId, item.sample, 1, JSON.stringify(item))
     this.saveRevision(item, actor, '首次记录')
+    this.changed(project)
     return { item, duplicate: false }
   }
   previewRecord(project: string, raw: unknown) {
@@ -128,12 +144,106 @@ export class BatchDataStore {
       this.db.prepare('UPDATE records SET revision=?,payload=? WHERE project_id=? AND id=? AND revision=?')
         .run(item.revision, JSON.stringify(item), project, id, previous.revision)
       this.saveRevision(item, actor, reason)
+      this.changed(project)
       return item
     })
   }
   history(project: string, id: string): Revision[] {
     this.item('records', project, id)
     return this.rows<Revision>('SELECT payload FROM revisions WHERE project_id=? AND record_id=? ORDER BY revision DESC', project, id)
+  }
+  /** Validate the whole plan in a savepoint, then discard every proposed write. */
+  prepareManagement(project: string, run: string, raw: unknown) {
+    const request = managementRequestSchema.parse(raw), expectedRevision = this.revision(project)
+    this.db.exec('SAVEPOINT management_preview')
+    try {
+      const { changes } = this.applyManagement(project, run, request, 'preview')
+      return { payload: { projectId: project, runId: run, expectedRevision, request }, changes,
+        summary: `整理原因：${request.reason}\n共 ${changes.length} 项变更；批准后一起执行。\n\n${changes.map((change, i) => `${i + 1}. ${change.summary}`).join('\n\n')}\n\n已有测量值与单位保持原样，整理前的记录和修改原因可回查。` }
+    } finally { this.db.exec('ROLLBACK TO management_preview; RELEASE management_preview') }
+  }
+  manage(project: string, run: string, raw: unknown, actor = 'agent-approved') {
+    const plan = preparedManagementSchema.parse(raw)
+    if (plan.projectId !== project || plan.runId !== run) throw new Error('整理提案不属于当前项目或运行，请重新发起。')
+    return this.transaction(() => {
+      if (plan.expectedRevision !== this.revision(project)) throw new Error('数据库在等待审批期间已发生变化，请拒绝旧提案并重新核对后提交。')
+      const result = this.applyManagement(project, run, plan.request, actor)
+      const entry: ManagementEntry = { id: uid(), projectId: project, runId: run, at: now(), actor, reason: plan.request.reason, changes: result.changes }
+      this.db.prepare('INSERT INTO management_history VALUES(?,?,?)').run(entry.id, project, JSON.stringify(entry))
+      return { message: `已完成 ${entry.changes.length} 项数据库整理，原始测量值和单位已保留。`, auditId: entry.id, ...result }
+    })
+  }
+  managementHistory(project: string, limit = 10, offset = 0): ManagementEntry[] {
+    return this.rows<ManagementEntry>('SELECT payload FROM management_history WHERE project_id=? ORDER BY rowid DESC LIMIT ? OFFSET ?', project, Math.min(20, Math.max(1, limit)), Math.max(0, offset))
+  }
+  private applyManagement(project: string, run: string, request: ManagementRequest, actor: string) {
+    const created: Record<string, string> = Object.create(null), changes: ManagementChange[] = []
+    const resolve = (reference: string) => reference.startsWith('@') ? created[reference.slice(1)] ?? (() => { throw new Error(`未找到前序新建对象 ${reference}。`) })() : reference
+    const describeId = (field: string, id: string) => {
+      if (field === 'roundId') { const item = this.item<Round>('rounds', project, id); return `第 ${item.number} 轮 · ${item.name}` }
+      if (field === 'batchId') { const item = this.item<Batch>('batches', project, id); return `${item.code} · ${item.name}` }
+      return id
+    }
+    for (const operation of request.operations) {
+      if ('ref' in operation && created[operation.ref]) throw new Error(`新建对象引用 ${operation.ref} 重复。`)
+      if (operation.action === 'create_round' || operation.action === 'create_batch' || operation.action === 'create_metric') {
+        const kind = operation.action === 'create_round' ? 'round' : operation.action === 'create_batch' ? 'batch' : 'metric'
+        const item = operation.action === 'create_round' ? this.addRound(project, run, operation.data)
+          : operation.action === 'create_batch' ? this.addBatch(project, run, { ...operation.data, roundId: resolve(operation.data.roundId) }) : this.addMetric(project, operation.data)
+        created[operation.ref] = item.id
+        const after = { ...item }, label = kind === 'round' ? '轮次' : kind === 'batch' ? '批次' : '指标'
+        changes.push({ kind, id: item.id, before: null, after, summary: describeManagementChange(`新建${label}`, null, after, Object.keys(operation.data), describeId) })
+      } else if (operation.action === 'update_round') {
+        const before = this.item<Round>('rounds', project, resolve(operation.id))
+        const { appendNote, ...patch } = operation.patch
+        const fields: Partial<Pick<Round, 'number' | 'name' | 'note'>> = { ...patch }
+        if (appendNote !== undefined) fields.note = appendManagementNote(before.note, appendNote)
+        const after: Round = { ...before, ...roundSchema.parse({ number: before.number, name: before.name, note: before.note, ...fields }) }
+        if (Object.keys(fields).every(key => before[key as keyof Round] === after[key as keyof Round])) continue
+        if (this.db.prepare('SELECT id FROM rounds WHERE project_id=? AND number=? AND id<>?').get(project, after.number, before.id)) throw new Error('目标轮次编号已存在。')
+        const summary = describeManagementChange(`整理轮次：第 ${before.number} 轮 · ${before.name}`, { ...before }, { ...after }, Object.keys(fields), describeId)
+        this.db.prepare('UPDATE rounds SET number=?,payload=? WHERE project_id=? AND id=?').run(after.number, JSON.stringify(after), project, before.id)
+        this.changed(project)
+        changes.push({ kind: 'round', id: before.id, before: { ...before }, after: { ...after }, summary })
+      } else if (operation.action === 'update_batch') {
+        const before = this.item<Batch>('batches', project, resolve(operation.id)), fields = { ...operation.patch }
+        if (fields.roundId) fields.roundId = resolve(fields.roundId)
+        const after: Batch = { ...before, ...batchSchema.parse({ roundId: before.roundId, code: before.code, name: before.name, conditions: before.conditions, ...fields }) }
+        if (Object.keys(fields).every(key => before[key as keyof Batch] === after[key as keyof Batch])) continue
+        this.item('rounds', project, after.roundId)
+        if (this.db.prepare('SELECT id FROM batches WHERE project_id=? AND round_id=? AND code=? AND id<>?').get(project, after.roundId, after.code, before.id)) throw new Error('目标轮次中已有相同批次编号，请先核对。')
+        const count = this.records(project, { batchId: before.id, limit: 1 }).total
+        const summary = describeManagementChange(`整理批次：${before.code} · ${before.name}（${count} 条测量记录）`, { ...before }, { ...after }, Object.keys(fields), describeId)
+        this.db.prepare('UPDATE batches SET round_id=?,code=?,payload=? WHERE project_id=? AND id=?').run(after.roundId, after.code, JSON.stringify(after), project, before.id)
+        this.changed(project)
+        changes.push({ kind: 'batch', id: before.id, before: { ...before }, after: { ...after }, summary })
+      } else if (operation.action === 'update_metric') {
+        const before = this.item<Metric>('metrics', project, resolve(operation.id)), after = { ...before, ...operation.patch }
+        if (Object.keys(operation.patch).every(key => before[key as keyof Metric] === after[key as keyof Metric])) continue
+        if (this.db.prepare('SELECT id FROM metrics WHERE project_id=? AND code=? AND id<>?').get(project, after.code, before.id)) throw new Error('该指标代码已存在，不能直接合并指标。')
+        this.db.prepare('UPDATE metrics SET code=?,payload=? WHERE project_id=? AND id=?').run(after.code, JSON.stringify(after), project, before.id)
+        this.changed(project)
+        changes.push({ kind: 'metric', id: before.id, before: { ...before }, after: { ...after }, summary: describeManagementChange(`整理指标：${before.code} · ${before.name}（单位 ${before.unit || '无量纲'}）`, { ...before }, { ...after }, Object.keys(operation.patch), describeId) })
+      } else {
+        const before = this.item<Observation>('records', project, resolve(operation.id))
+        const { appendNote, ...patch } = operation.patch
+        const fields: Partial<Pick<Observation, 'batchId' | 'sample' | 'note'>> = { ...patch }
+        if (appendNote !== undefined) fields.note = appendManagementNote(before.note, appendNote)
+        if (fields.batchId) fields.batchId = resolve(fields.batchId)
+        const after: Observation = { ...before, ...fields, revision: before.revision + 1, updatedAt: now() }
+        if (Object.keys(fields).every(key => before[key as keyof Observation] === after[key as keyof Observation])) continue
+        this.item('batches', project, after.batchId)
+        const existing = this.existing(project, after)
+        if (existing && existing.id !== before.id) throw new Error('目标批次的采样点和指标已有记录，请核对后单独处理，不能覆盖。')
+        const summary = describeManagementChange(`整理采样记录：${before.sample}（${before.value} ${before.unit}；来源 ${before.source} ${before.locator}）`, { ...before }, { ...after }, Object.keys(fields), describeId)
+        this.db.prepare('UPDATE records SET batch_id=?,sample=?,revision=?,payload=? WHERE project_id=? AND id=?').run(after.batchId, after.sample, after.revision, JSON.stringify(after), project, before.id)
+        this.saveRevision(after, actor, request.reason)
+        this.changed(project)
+        changes.push({ kind: 'record', id: before.id, before: { ...before }, after: { ...after }, summary })
+      }
+    }
+    if (!changes.length) throw new Error('所选内容与数据库一致，无需提交整理审批。')
+    return { created, changes }
   }
   records(project: string, filter: { batchId?: string | undefined; metricId?: string | undefined; sample?: string | undefined; offset?: number; limit?: number } = {}): RecordPage {
     if (filter.batchId) this.item('batches', project, filter.batchId)
@@ -147,6 +257,52 @@ export class BatchDataStore {
     const clause = where.join(' AND ')
     const total = (this.db.prepare(`SELECT COUNT(*) AS n FROM records WHERE ${clause}`).get(...args) as { n: number }).n
     return { items: this.rows<Observation>(`SELECT payload FROM records WHERE ${clause} ORDER BY rowid DESC LIMIT ? OFFSET ?`, ...args, limit, offset), total, offset, limit }
+  }
+  /** Keep identity beside each observation instead of requiring joins across model messages. */
+  recordsWithContext(project: string, filter: Parameters<BatchDataStore['records']>[1] = {}) {
+    const page = this.records(project, filter), catalogue = this.catalogue(project)
+    const batches = new Map(catalogue.batches.map(item => [item.id, item]))
+    const rounds = new Map(catalogue.rounds.map(item => [item.id, item]))
+    const metrics = new Map(catalogue.metrics.map(item => [item.id, item]))
+    return { ...page, items: page.items.map(record => {
+      const batch = batches.get(record.batchId)!, round = rounds.get(batch.roundId)!
+      return { ...record, round: { id: round.id, number: round.number, name: round.name },
+        batch: { id: batch.id, code: batch.code, name: batch.name }, metric: metrics.get(record.metricId)! }
+    }) }
+  }
+  /** Project-scoped, bounded matrix. Missing cells never borrow an adjacent batch's value. */
+  overview(project: string, raw: unknown = {}) {
+    const input = overviewSchema.parse(raw), catalogue = this.catalogue(project)
+    if (input.roundId) this.item('rounds', project, input.roundId)
+    if (input.metricId) this.item('metrics', project, input.metricId)
+    const rounds = new Map(catalogue.rounds.map(item => [item.id, item]))
+    const batches = catalogue.batches.filter(item => !input.roundId || item.roundId === input.roundId)
+      .sort((a, b) => rounds.get(a.roundId)!.number - rounds.get(b.roundId)!.number || a.code.localeCompare(b.code) || a.id.localeCompare(b.id))
+    const metrics = catalogue.metrics.filter(item => !input.metricId || item.id === input.metricId)
+    const args: Array<string | number> = [project, project], where = ['r.project_id=?', 'b.project_id=?']
+    if (input.roundId) { where.push('b.round_id=?'); args.push(input.roundId) }
+    if (input.metricId) { where.push('r.metric_id=?'); args.push(input.metricId) }
+    const sampleQuery = `FROM records r JOIN batches b ON b.id=r.batch_id WHERE ${where.join(' AND ')}`
+    const sampleTotal = (this.db.prepare(`SELECT COUNT(DISTINCT r.sample) AS n ${sampleQuery}`).get(...args) as { n: number }).n
+    const samples = (this.db.prepare(`SELECT DISTINCT r.sample ${sampleQuery} ORDER BY r.sample LIMIT ? OFFSET ?`)
+      .all(...args, input.sampleLimit, input.sampleOffset) as { sample: string }[]).map(item => item.sample)
+    const total = batches.length * metrics.length, rows: OverviewRow[] = []
+    for (let i = input.offset; i < Math.min(total, input.offset + input.limit); i++) {
+      const batch = batches[Math.floor(i / metrics.length)]!, metric = metrics[i % metrics.length]!, round = rounds.get(batch.roundId)!
+      const records = samples.length ? this.rows<Observation>(`SELECT payload FROM records WHERE project_id=? AND batch_id=? AND metric_id=? AND sample IN (${samples.map(() => '?').join(',')})`, project, batch.id, metric.id, ...samples) : []
+      const bySample = new Map(records.map(item => [item.sample, item]))
+      rows.push({ round: { id: round.id, number: round.number, name: round.name },
+        batch: { id: batch.id, code: batch.code, name: batch.name, conditions: batch.conditions }, metric,
+        cells: samples.map(sample => {
+          const record = bySample.get(sample) ?? null
+          return { sample, status: record ? 'recorded' : 'missing', value: record?.value ?? null, record }
+        }) })
+    }
+    return { projectId: project, rows, samples, total, offset: input.offset, limit: input.limit,
+      sampleTotal, sampleOffset: input.sampleOffset, sampleLimit: input.sampleLimit,
+      hasMoreRows: input.offset + rows.length < total, hasMoreSamples: input.sampleOffset + samples.length < sampleTotal,
+      alignment: 'Exact batchId + metricId + sample. Different sample spellings are separate columns until an organization plan is approved. Missing means no matching record; it is not zero or proof that no sample was taken.',
+      table: overviewTable(samples, rows) }
   }
   private importRows(project: string, batchId: string, csv: string) {
     this.item('batches', project, batchId)
