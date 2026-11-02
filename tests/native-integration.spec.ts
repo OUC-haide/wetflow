@@ -85,6 +85,44 @@ async function harness(baseURL: string, legacyRoute = false) {
 }
 
 describe('Education WEAVE over the provider HTTP boundary', () => {
+  it('delivers complete multi-case pages and distinguishes source facts from new suggestions', async () => {
+    const caseIds = ['buct-tactile', 'nnu-rainbow-orchard', 'nacis-cell-game', 'depu-dna-workshop', 'barcelona-dna-toolkit', 'heidelberg-platform']
+    const inputs = { audience: 'primary', durationMinutes: 20, learningGoal: 'Explain DNA base pairing with paper models',
+      resources: ['纸', '彩笔', '黏土'], caseIds }
+    const receivedTexts: string[] = []
+    const observations: Array<{ comparisons: Array<{ id: string; resourcesToConfirm: string[]; source: { citations: string[] } }>,
+      wetflowProposals: Array<{ caseId: string; authoredBy: string; status: string; sourceTeamImplementation: string }>; nextOffset: number | null }> = []
+    const provider = await fakeProvider((body, call) => {
+      if (call === 1) return toolCall('brief-0', 'education_make_brief', inputs)
+      const messages = body.messages as Array<{ role: string; content: string }>
+      const text = messages.filter(message => message.role === 'tool').at(-1)!.content
+      receivedTexts.push(text)
+      if (!text.startsWith('{')) return { role: 'assistant', content: text }
+      const result = JSON.parse(text) as typeof observations[number]
+      observations.push(result)
+      if (result.nextOffset !== null) return toolCall(`brief-${result.nextOffset}`, 'education_make_brief', { ...inputs, offset: result.nextOffset })
+      return { role: 'assistant', content: '完整案例已读取，原团队记录与本次建议分开。' }
+    })
+    const { app } = await harness(provider.baseURL)
+    await app.inject({ method: 'PATCH', url: '/api/privacy-settings', payload: { allowDocumentExcerpts: true } })
+    await app.inject({ method: 'POST', url: '/api/plugins/education/load' })
+    const response = await app.inject({ method: 'POST', url: '/api/chat', payload: { content: '安排20分钟DNA活动，有纸、彩笔和黏土。' } })
+    expect(response.statusCode).toBe(200)
+    for (const text of receivedTexts) {
+      expect(text).not.toContain('工具结果已按上限截断')
+      expect(text.length).toBeLessThanOrEqual(5700)
+      expect(() => JSON.parse(text), text).not.toThrow()
+    }
+    expect(observations.length).toBeGreaterThan(1)
+    const records = observations.flatMap(page => page.comparisons)
+    expect(records.map(item => item.id)).toEqual(caseIds)
+    expect(records.find(item => item.id === 'buct-tactile')?.resourcesToConfirm).toEqual([])
+    expect(records.every(item => item.source.citations.length > 0)).toBe(true)
+    expect(records.every(item => !('proposedAdaptation' in item))).toBe(true)
+    const proposals = observations.flatMap(page => page.wetflowProposals)
+    expect(proposals.map(item => item.caseId)).toEqual(caseIds)
+    expect(proposals.every(item => item.authoredBy === 'WetFlow' && item.status === 'proposed' && item.sourceTeamImplementation === 'unknown')).toBe(true)
+  })
   it('sends the plugin framework on every tool-loop request and stops after unload', async () => {
     const provider = await fakeProvider((_body, call) => call === 1
       ? toolCall('education-search', 'education_search_cases', { category: 'storytelling', audience: 'primary' })

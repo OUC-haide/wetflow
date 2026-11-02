@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import type { WetFlowContext } from '../plugins/types.js'
+import { extractImportFile } from './import-file.js'
 
 export function registerBatchDataRoutes(app: FastifyInstance, ctx: WetFlowContext): void {
   app.addHook('preHandler', async (request, reply) => {
@@ -24,12 +25,16 @@ export function registerBatchDataRoutes(app: FastifyInstance, ctx: WetFlowContex
     app.post<{ Body: unknown; Params: Record<string, string> }>(path, async (req, reply) => {
       if (!ctx.wetflowBatchData) return reply.code(503).send({ error: '多批次数据插件未启用。' })
       if (ctx.wetflow.snapshot().agentState === 'THINKING') return reply.code(409).send({ error: '请等待当前 Agent 操作完成后再修改数据。' })
-      try { return handle(req.body, req.params) } catch (error) {
+      try { return await handle(req.body, req.params) } catch (error) {
         return reply.code(400).send({ error: error instanceof z.ZodError ? error.issues.map(x => `${x.path.join('.')}: ${x.message}`).join('；') : error instanceof Error ? error.message : String(error) })
       }
     })
   }
   get('/api/batch-data/catalog', () => service().catalogue(project()))
+  get('/api/batch-data/management-history', query => {
+    const { limit, offset } = z.object({ limit: z.coerce.number().int().min(1).max(20).default(10), offset: z.coerce.number().int().min(0).default(0) }).parse(query)
+    return service().managementHistory(project(), limit, offset)
+  })
   get('/api/batch-data/records', query => service().records(project(), z.object({
     batchId: z.string().optional(), metricId: z.string().optional(), sample: z.string().optional(),
     offset: z.coerce.number().int().min(0).default(0), limit: z.coerce.number().int().min(1).max(500).default(100),
@@ -45,6 +50,19 @@ export function registerBatchDataRoutes(app: FastifyInstance, ctx: WetFlowContex
   post('/api/batch-data/metrics', body => service().addMetric(project(), body))
   post('/api/batch-data/records', body => service().record(project(), run(), body))
   post('/api/batch-data/records/:id/correct', (body, params) => service().correct(project(), params.id!, body))
+  app.post('/api/batch-data/import/file', { bodyLimit: 15 * 1024 * 1024 }, async (request, reply) => {
+    if (!ctx.wetflowBatchData) return reply.code(503).send({ error: '请先启用多批次数据插件。' })
+    const projectId = project(), database = service()
+    try {
+      const { batchId, name, dataUrl } = z.object({ batchId: z.string().min(1), name: z.string().min(1).max(300), dataUrl: z.string().max(15 * 1024 * 1024) }).strict().parse(request.body)
+      database.records(projectId, { batchId, limit: 1 })
+      const result = await extractImportFile(name, dataUrl)
+      if (project() !== projectId || ctx.wetflowBatchData !== database) return reply.code(409).send({ error: '项目或插件已切换，请重新选择文件。' })
+      return result
+    } catch (error) {
+      return reply.code(400).send({ error: error instanceof Error ? error.message : '文件读取失败。' })
+    }
+  })
   const importInput = z.object({ batchId: z.string().min(1), csv: z.string().max(1_000_000) }).strict()
   post('/api/batch-data/import/preview', body => { const { batchId, csv } = importInput.parse(body); return service().preview(project(), batchId, csv) })
   post('/api/batch-data/import', body => { const { batchId, csv } = importInput.parse(body); return service().import(project(), run(), batchId, csv) })

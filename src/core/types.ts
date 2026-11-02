@@ -165,7 +165,7 @@ export interface AgentSnapshot {
 }
 
 export interface ContextSourceStats {
-  kind: 'instructions' | 'workflow' | 'memory' | 'evidence' | 'conversation' | 'tools'
+  kind: 'instructions' | 'workflow' | 'memory' | 'evidence' | 'conversation' | 'tools' | 'plugin-context'
   items: number
   estimatedTokens: number
 }

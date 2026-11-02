@@ -3,6 +3,7 @@ import type { ChatAttachment } from '../core/types.js'
 import type { ModelImage } from './media.js'
 import { workflowPlan } from '../core/workflow.js'
 import type { WetFlowStore } from '../core/store.js'
+import type { PluginContextSource } from './context.js'
 
 export interface AttachmentHandler {
   validate(items: ChatAttachment[]): void
@@ -18,6 +19,7 @@ export class ToolRegistry {
   private readonly tools = new Map<string, ToolDefinition<Record<string, unknown>, unknown>>()
   private readonly owners = new Map<string, string>()
   private readonly policies = new Map<string, { text: string }>()
+  private readonly contextSources = new Map<string, PluginContextSource>()
 
   /** Stage a complete plugin registration; dispose only this mount's tools. */
   mount(owner: string, register: (registry: ToolRegistry) => void): () => void {
@@ -28,6 +30,9 @@ export class ToolRegistry {
     }
     for (const name of staged.policies.keys()) {
       if (this.policies.has(name)) throw new Error(`Policy ${name} is already registered`)
+    }
+    for (const name of staged.contextSources.keys()) {
+      if (this.contextSources.has(name)) throw new Error(`Context ${name} is already registered`)
     }
     if (staged.attachmentSupport && this.attachmentSupport) throw new Error('Attachment handler already registered')
     const handler = staged.attachmentSupport
@@ -44,6 +49,12 @@ export class ToolRegistry {
       installed.set(name, guarded)
     }
     for (const [name, policy] of staged.policies) this.policies.set(name, policy)
+    const contexts = new Map<string, PluginContextSource>()
+    for (const [name, source] of staged.contextSources) {
+      const guarded = { name, read: (budget: number) => active ? source.read(budget) : undefined }
+      this.contextSources.set(name, guarded)
+      contexts.set(name, guarded)
+    }
     return () => {
       active = false
       if (handler && this.attachmentSupport === handler) this.attachmentSupport = undefined
@@ -54,6 +65,9 @@ export class ToolRegistry {
       }
       for (const [name, policy] of staged.policies) {
         if (this.policies.get(name) === policy) this.policies.delete(name)
+      }
+      for (const [name, source] of contexts) {
+        if (this.contextSources.get(name) === source) this.contextSources.delete(name)
       }
     }
   }
@@ -67,6 +81,17 @@ export class ToolRegistry {
 
   instructions(): string {
     return [...this.policies.values()].map(policy => policy.text).join('\n\n')
+  }
+
+  /** Plugin-owned metadata providers; evaluated against the current project. */
+  registerContext(name: string, read: PluginContextSource['read']): void {
+    if (!name.trim()) throw new Error('Plugin context needs a name')
+    if (this.contextSources.has(name)) throw new Error(`Context ${name} is already registered`)
+    this.contextSources.set(name, { name, read })
+  }
+
+  contexts(): PluginContextSource[] {
+    return [...this.contextSources.values()]
   }
 
   ownedBy(owner: string): string[] {

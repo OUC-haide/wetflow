@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { createEducationService, type EducationCard } from '../src/plugins/education.js'
+import { estimateTokens } from '../src/agent/context.js'
 
 const data = JSON.parse(readFileSync(new URL('../examples/education/education-library.json', import.meta.url), 'utf8'))
 const cards = data.cards as EducationCard[]
@@ -8,6 +9,36 @@ const documents = [...new Set(cards.map(item => item.document))]
 const all = () => createEducationService(cards, () => documents, undefined, { categories: data.categories })
 const input = { audience: 'secondary', durationMinutes: 60, learningGoal: 'Explain a waste-to-product manufacturing route', resources: ['paper'], caseIds: ['ouc-route-puzzle', 'heidelberg-platform'] }
 describe('Education extension', () => {
+  it('finds cases by team name and combines the team filter with audience and category', () => {
+    expect(all().search({ query: 'BUCT' }).items.map(item => item.id)).toEqual(['buct-tactile'])
+    expect(all().search({ query: 'Heidelberg' }).items.map(item => item.id)).toEqual(['heidelberg-platform'])
+    expect(all().search({ team: ' buct ', audience: 'primary' }).items.map(item => item.id)).toEqual(['buct-tactile'])
+    expect(all().search({ team: 'BUCT', category: 'digital-interactive' }).items).toEqual([])
+    expect(all().search({ team: 'BUCT', audience: 'university' }).items).toEqual([])
+    expect(all().search({ team: 'Unknown team' }).items).toEqual([])
+    expect(createEducationService(cards, () => []).search({ team: 'BUCT' }).items).toEqual([])
+  })
+  it('refreshes team metadata without importing sources or exposing case text', () => {
+    let visible = ['OUC-EDU-ACTIVITIES.md'], imports = 0
+    const service = createEducationService(cards, () => visible, undefined, { categories: data.categories,
+      bundledDocuments: cards.filter(item => item.collection === 'historical').map(item => item.document),
+      ensureSources: () => { imports += 1 } })
+    const context = service.context(1500)!
+    expect(context.totalTeams).toBe(9)
+    expect(context.teams.find(team => team.name === 'OUC-Haide')).toMatchObject({ caseCount: 2, year: 2026 })
+    expect(context.teams.find(team => team.name === 'BUCT')).toMatchObject({ caseCount: 1, year: 2025, types: ['包容性与触觉教学'] })
+    expect(context.omittedTeams).toBe(0)
+    for (const item of cards) expect(JSON.stringify(context)).not.toContain(item.practice)
+    visible = []
+    expect(service.context(1500)!.teams.some(team => team.name === 'OUC-Haide')).toBe(false)
+    expect(service.context(1500)!.totalTeams).toBe(8)
+    expect(imports).toBe(0)
+    const bounded = service.context(200)!
+    expect(estimateTokens(JSON.stringify(bounded))).toBeLessThanOrEqual(200)
+    expect(bounded.omittedTeams).toBeGreaterThan(0)
+    expect(bounded.omittedTeams + bounded.teams.length).toBe(bounded.totalTeams)
+    expect(service.context(1)).toBeUndefined()
+  })
   it('provides 1–2 attributed past teams per category and separates team resources', () => {
     const catalogue = all().catalogue()
     expect(catalogue.categories.length).toBe(6)
